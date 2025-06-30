@@ -17,7 +17,7 @@ adwaita_dep = dependency('libadwaita-1', version: '>= 1.7')
 webkitgtk_dep = dependency('webkitgtk-6.0', version: '>= 2.48')
 
 # Get the Python installation's site-packages (purelib) directory reliably.
-python_version = run_command(python3_exe, '-c', 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")', check: true).stdout().strip()
+python_version = '3.13'
 python_site_packages_dir = join_paths(get_option('prefix'), 'lib', 'python' + python_version, 'site-packages')
 
 
@@ -43,6 +43,7 @@ install_data(
     'src/seoltoir/import_export_dialog.py',
     'src/seoltoir/container_manager.py',
     'src/seoltoir/ui_loader.py',
+    'src/seoltoir/debug.py',
   ],
   install_dir: join_paths(python_site_packages_dir, 'seoltoir'),
 )
@@ -125,5 +126,6 @@ configure_file(
     'PYTHON_EXECUTABLE': python3_exe.full_path(),
     'APP_ID': meson.project_name(), # Use simplified APP_ID
     'PYTHON_SITE_PACKAGES': python_site_packages_dir # Pass the calculated site-packages dir
-  }
+  },
+  install_mode: 'rwxr-xr-x'
 )

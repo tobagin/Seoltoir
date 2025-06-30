@@ -259,10 +259,9 @@ class SeoltoirApplication(Adw.Application):
                 browser_view = page.get_child()
                 
                 # Try to serialize session state, but handle if method doesn't exist
-                serialized_state = ""
                 try:
                     if hasattr(browser_view.webview, 'serialize_session_state'):
-                serialized_state_gbytes = browser_view.webview.serialize_session_state() 
+                        serialized_state_gbytes = browser_view.webview.serialize_session_state()
                         serialized_state = serialized_state_gbytes.get_data().decode('latin1') if serialized_state_gbytes else ""
                 except AttributeError:
                     # Session serialization not available in this WebKit version
@@ -299,7 +298,7 @@ class SeoltoirApplication(Adw.Application):
                 cookie_manager = WebKit.NetworkSession.get_default().get_cookie_manager()
             for domain in non_bookmarked_domains:
                 cookie_manager.delete_cookies_for_domain(domain)
-                    debug_print(f"Deleted cookies for non-bookmarked domain: {domain}")
+                debug_print(f"Deleted cookies for non-bookmarked domain: {domain}")
         
         session_data = self._get_current_session_data()
         self.db_manager.save_session(session_data)
