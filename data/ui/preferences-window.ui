@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="libadwaita" version="1.0"/>
+  
+  <template class="SeoltoirPreferencesWindow" parent="AdwPreferencesWindow">
+    <property name="default-width">600</property>
+    <property name="default-height">400</property>
+    <property name="title">Seoltóir Preferences</property>
+    
+    <!-- General Page -->
+    <child>
+      <object class="AdwPreferencesPage" id="general_page">
+        <property name="title">General</property>
+        <property name="icon-name">document-page-setup-symbolic</property>
+        
+        <!-- Startup Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="startup_group">
+            <property name="title">Startup</property>
+            
+            <child>
+              <object class="AdwEntryRow" id="homepage_row">
+                <property name="title">Homepage</property>
+                <property name="placeholder-text">e.g., https://www.duckduckgo.com</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        
+        <!-- Downloads Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="downloads_group">
+            <property name="title">Downloads</property>
+            
+            <child>
+              <object class="AdwActionRow" id="download_dir_row">
+                <property name="title">Default Download Directory</property>
+                <property name="suffix">
+                  <object class="GtkFileChooserButton" id="download_dir_chooser">
+                    <property name="title">Select Download Directory</property>
+                    <property name="action">select-folder</property>
+                    <property name="valign">center</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+    
+    <!-- Privacy Page -->
+    <child>
+      <object class="AdwPreferencesPage" id="privacy_page">
+        <property name="title">Privacy</property>
+        <property name="icon-name">security-high-symbolic</property>
+        
+        <!-- Content Blocking Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="content_blocking_group">
+            <property name="title">Content Blocking</property>
+            
+            <child>
+              <object class="AdwSwitchRow" id="ad_blocking_switch">
+                <property name="title">Block Ads</property>
+                <property name="subtitle">Block advertisements and tracking scripts</property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="AdwSwitchRow" id="tracker_blocking_switch">
+                <property name="title">Block Trackers</property>
+                <property name="subtitle">Block tracking scripts and analytics</property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="AdwSwitchRow" id="https_everywhere_switch">
+                <property name="title">HTTPS Everywhere</property>
+                <property name="subtitle">Force secure connections when available</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        
+        <!-- Referrer Policy Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="referrer_policy_group">
+            <property name="title">Referrer Policy</property>
+            
+            <child>
+              <object class="AdwActionRow" id="referrer_policy_row">
+                <property name="title">Referrer Policy</property>
+                <property name="suffix">
+                  <object class="GtkDropDown" id="referrer_policy_dropdown">
+                    <property name="valign">center</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+    
+    <!-- Search Engines Page -->
+    <child>
+      <object class="AdwPreferencesPage" id="search_engines_page">
+        <property name="title">Search Engines</property>
+        <property name="icon-name">system-search-symbolic</property>
+        
+        <!-- Search Engine Management Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="search_engine_management_group">
+            <property name="title">Search Engine Management</property>
+            
+            <child>
+              <object class="AdwActionRow" id="default_search_engine_row">
+                <property name="title">Default Search Engine</property>
+                <property name="suffix">
+                  <object class="GtkDropDown" id="default_search_engine_dropdown">
+                    <property name="valign">center</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="AdwActionRow" id="search_engine_list_row">
+                <property name="title">Configured Search Engines</property>
+                <property name="child">
+                  <object class="GtkListBox" id="search_engine_listbox">
+                    <property name="selection-mode">none</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="GtkButton" id="add_search_engine_button">
+                <property name="label">Add New</property>
+                <property name="tooltip-text">Add new search engine</property>
+                <style>
+                  <class name="suggested-action"/>
+                </style>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+    
+    <!-- Appearance Page -->
+    <child>
+      <object class="AdwPreferencesPage" id="appearance_page">
+        <property name="title">Appearance</property>
+        <property name="icon-name">preferences-desktop-theme-symbolic</property>
+        
+        <!-- Theme Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="theme_group">
+            <property name="title">Theme</property>
+            
+            <child>
+              <object class="AdwActionRow" id="theme_variant_row">
+                <property name="title">Theme Variant</property>
+                <property name="suffix">
+                  <object class="GtkDropDown" id="theme_variant_dropdown">
+                    <property name="valign">center</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface> 

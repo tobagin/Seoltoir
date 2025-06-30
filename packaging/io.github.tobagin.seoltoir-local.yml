@@ -1,0 +1,27 @@
+app-id: io.github.tobagin.seoltoir
+runtime: org.gnome.Platform
+runtime-version: '48'
+sdk: org.gnome.Sdk
+command: seoltoir
+
+finish-args:
+  - --share=network
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --device=dri
+  - --filesystem=home
+  - --persist=~/.local/share/seoltoir
+  - --env=PYTHONPATH=/app/lib/python3.11/site-packages
+  
+modules:
+  - name: seoltoir
+    buildsystem: meson
+    sources:
+      - type: dir
+        path: ../
+    builddir: true
+    config-opts:
+      - --prefix=/app
+    install-commands:
+      - meson install -C build --no-rebuild

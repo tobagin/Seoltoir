@@ -1,0 +1,60 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python/
+env/
+.venv/
+venv/
+seoltoir_env/
+*.egg-info/
+.pytest_cache/
+.tox/
+.mypy_cache/
+.hypothesis/
+*.orig
+
+# Meson build system
+build/  # The main build directory
+setup/
+*.ninja
+meson-private/
+meson-logs/
+meson-info/
+meson-install/
+meson-dist/
+
+# Operating System Files
+.DS_Store
+.Trash/
+Thumbs.db
+ehthumbs.db
+*.bak
+*.swp
+*.swo
+
+# IDE and Editor Files
+.vscode/        # VS Code
+.idea/          # IntelliJ/PyCharm
+*.iml
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+*.kate-swp
+*.kdev4
+
+# Flatpak build files
+build-dir/
+.flatpak-builder/
+.flatpak-builder-cache/
+.flatpak-builder-temp/
+
+# Documentation (MkDocs)
+site/           # The generated site directory
+.cache/         # MkDocs build cache
+
+# Distribution / packaging
+*.egg-info/
+dist/
+build/

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="libadwaita" version="1.0"/>
+  
+  <template class="SearchEngineDialog" parent="AdwDialog">
+    <property name="modal">true</property>
+    <property name="default-width">400</property>
+    <property name="default-height">200</property>
+    
+    <!-- Header Bar -->
+    <property name="titlebar">
+      <object class="AdwHeaderBar" id="header_bar">
+        <property name="title-widget">
+          <object class="AdwWindowTitle" id="window_title">
+            <property name="title">Add Search Engine</property>
+            <property name="subtitle">Configure Search Engine</property>
+          </object>
+        </property>
+      </object>
+    </property>
+    
+    <!-- Content -->
+    <child>
+      <object class="GtkBox" id="content_box">
+        <property name="orientation">vertical</property>
+        <property name="spacing">12</property>
+        <property name="margin-start">24</property>
+        <property name="margin-end">24</property>
+        <property name="margin-top">24</property>
+        <property name="margin-bottom">24</property>
+        
+        <child>
+          <object class="AdwEntryRow" id="name_entry">
+            <property name="title">Name</property>
+            <property name="placeholder-text">e.g., Google</property>
+          </object>
+        </child>
+        
+        <child>
+          <object class="AdwEntryRow" id="url_entry">
+            <property name="title">URL</property>
+            <property name="subtitle">Use %s as query placeholder</property>
+            <property name="placeholder-text">e.g., https://www.google.com/search?q=%s</property>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface> 

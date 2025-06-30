@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="libadwaita" version="1.0"/>
+  
+  <template class="SiteSettingsDialog" parent="AdwPreferencesWindow">
+    <property name="default-width">600</property>
+    <property name="default-height">500</property>
+    <property name="title">Site Settings</property>
+    
+    <!-- Permissions Page -->
+    <child>
+      <object class="AdwPreferencesPage" id="permissions_page">
+        <property name="title">Permissions</property>
+        <property name="icon-name">security-high-symbolic</property>
+        
+        <!-- JavaScript Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="javascript_group">
+            <property name="title">JavaScript</property>
+            
+            <child>
+              <object class="AdwActionRow" id="js_row">
+                <property name="title">JavaScript</property>
+                <property name="suffix">
+                  <object class="GtkDropDown" id="js_dropdown">
+                    <property name="valign">center</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+    
+    <!-- Cookies Page -->
+    <child>
+      <object class="AdwPreferencesPage" id="cookies_page">
+        <property name="title">Cookies</property>
+        <property name="icon-name">cookie-symbolic</property>
+        
+        <!-- Cookies Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="cookies_group">
+            <property name="title">Cookies for this Site</property>
+            
+            <child>
+              <object class="GtkListBox" id="cookie_listbox">
+                <property name="selection-mode">none</property>
+                <style>
+                  <class name="boxed-list"/>
+                </style>
+              </object>
+            </child>
+            
+            <child>
+              <object class="GtkButton" id="delete_all_cookies_button">
+                <property name="label">Delete All Cookies for This Site</property>
+                <style>
+                  <class name="destructive-action"/>
+                </style>
+              </object>
+            </child>
+          </object>
+        </child>
+        
+        <!-- Other Site Storage Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="other_storage_group">
+            <property name="title">Other Site Storage</property>
+            
+            <child>
+              <object class="GtkListBox" id="other_storage_listbox">
+                <property name="selection-mode">none</property>
+                <style>
+                  <class name="boxed-list"/>
+                </style>
+              </object>
+            </child>
+            
+            <child>
+              <object class="GtkButton" id="delete_all_other_storage_button">
+                <property name="label">Delete All Other Data for This Site</property>
+                <style>
+                  <class name="destructive-action"/>
+                </style>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface> 

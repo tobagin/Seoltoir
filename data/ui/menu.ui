@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <menu id="menubar">
+    <section>
+      <item>
+        <attribute name="label">_Find in Page</attribute>
+        <attribute name="action">win.find_in_page</attribute>
+        <attribute name="accel">&lt;Primary&gt;f</attribute>
+      </item>
+      <item>
+        <attribute name="label">_Reading Mode</attribute>
+        <attribute name="action">win.toggle_reading_mode</attribute>
+      </item>
+    </section>
+    
+    <section>
+      <item>
+        <attribute name="label">_Add Bookmark</attribute>
+        <attribute name="action">win.bookmark_current_page</attribute>
+        <attribute name="accel">&lt;Primary&gt;d</attribute>
+      </item>
+      <item>
+        <attribute name="label">_Show Bookmarks</attribute>
+        <attribute name="action">app.show_bookmarks</attribute>
+      </item>
+      <item>
+        <attribute name="label">_Show History</attribute>
+        <attribute name="action">app.show_history</attribute>
+      </item>
+    </section>
+    
+    <section>
+      <item>
+        <attribute name="label">_Downloads</attribute>
+        <attribute name="action">win.show_downloads</attribute>
+      </item>
+      <item>
+        <attribute name="label">_Site Settings</attribute>
+        <attribute name="action">win.show_site_settings</attribute>
+      </item>
+    </section>
+    
+    <section>
+      <item>
+        <attribute name="label">_Settings</attribute>
+        <attribute name="action">app.show_preferences</attribute>
+      </item>
+      <item>
+        <attribute name="label">_Clear Browsing Data</attribute>
+        <attribute name="action">app.clear_browsing_data</attribute>
+      </item>
+    </section>
+    
+    <section>
+      <item>
+        <attribute name="label">_About</attribute>
+        <attribute name="action">app.about</attribute>
+      </item>
+      <item>
+        <attribute name="label">_Quit</attribute>
+        <attribute name="action">app.quit</attribute>
+        <attribute name="accel">&lt;Primary&gt;q</attribute>
+      </item>
+    </section>
+  </menu>
+</interface> 

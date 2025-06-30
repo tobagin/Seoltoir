@@ -1,0 +1,76 @@
+site_name: Seoltóir Browser Documentation
+site_url: https://tobagin.github.io/seoltoir/  # **IMPORTANT: Update this after creating your GitHub Pages!**
+site_author: Tobagin
+site_description: A privacy-focused web browser documentation.
+
+# Repository details for integration with GitHub
+repo_name: tobagin/seoltoir
+repo_url: https://github.com/tobagin/seoltoir
+
+# Copyright information
+copyright: Copyright &copy; 2025 Tobagin
+
+# Theme settings
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - toc.integrate
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+    - content.code.annotation
+    - content.code.copy
+  palette:
+    - scheme: default # Light mode
+      toggle:
+        icon: material/brightness-4
+        name: Switch to dark mode
+    - scheme: slate # Dark mode
+      toggle:
+        icon: material/brightness-7
+        name: Switch to light mode
+  font:
+    text: Inter
+    code: Fira Code
+  icon:
+    logo: material/compass-outline # A compass icon for Seoltóir
+    repo: fontawesome/brands/github
+
+# Extensions for better Markdown and features
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_numbers: true
+      linenums: true
+  - pymdownx.superfences
+  - pymdownx.details
+  - pymdownx.critic
+  - pymdownx.caret
+  - pymdownx.mark
+  - pymdownx.tilde
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - admonition # For callouts (notes, tips, warnings)
+  - attr_list # For adding attributes to markdown elements
+  - md_in_html # Allows Markdown inside HTML blocks
+  - footnotes
+  - abbr
+  - def_list
+  - codehilite # For code highlighting
+  - toc:
+      permalink: true # Adds permalinks to headings
+  - smarty # Smart typographic quotes
+
+# Navigation structure
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Privacy Features: privacy-features.md
+  - Customization: customization.md
+  - Contributing: contributing.md
+  - API Reference: api-reference.md # Placeholder for future auto-generated API docs

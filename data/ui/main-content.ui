@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="libadwaita" version="1.0"/>
+  
+  <object class="AdwToastOverlay" id="toast_overlay">
+    <child>
+      <object class="GtkBox" id="main_box">
+        <property name="orientation">vertical</property>
+        <property name="spacing">0</property>
+        
+        <!-- Header Bar -->
+        <child>
+          <object class="GtkHeaderBar" id="header_bar">
+            <property name="title-widget">
+              <object class="GtkEntry" id="address_bar">
+                <property name="placeholder-text">Enter URL or search</property>
+                <property name="hexpand">true</property>
+              </object>
+            </property>
+            
+            <child type="start">
+              <object class="GtkButton" id="back_button">
+                <property name="icon-name">go-previous-symbolic</property>
+                <property name="sensitive">false</property>
+              </object>
+            </child>
+            
+            <child type="start">
+              <object class="GtkButton" id="forward_button">
+                <property name="icon-name">go-next-symbolic</property>
+                <property name="sensitive">false</property>
+              </object>
+            </child>
+            
+            <child type="start">
+              <object class="GtkButton" id="reload_button">
+                <property name="icon-name">view-refresh-symbolic</property>
+              </object>
+            </child>
+            
+            <child type="start">
+              <object class="GtkButton" id="new_tab_button_header">
+                <property name="icon-name">io.github.tobagin.seoltoir-tab-add-symbolic</property>
+                <property name="tooltip-text">New Tab</property>
+              </object>
+            </child>
+            
+            <child type="start">
+              <object class="GtkButton" id="new_private_tab_button_header">
+                <property name="icon-name">io.github.tobagin.seoltoir-tab-add-private-symbolic</property>
+                <property name="tooltip-text">New Private Tab</property>
+              </object>
+            </child>
+            
+            <child type="end">
+              <object class="GtkLabel" id="privacy_indicator">
+                <property name="label">0 blocked</property>
+                <style>
+                  <class name="caption"/>
+                </style>
+                <property name="halign">end</property>
+              </object>
+            </child>
+            
+            <child type="end">
+              <object class="GtkButton" id="bookmark_button">
+                <property name="icon-name">bookmark-new-symbolic</property>
+                <property name="tooltip-text">Add Bookmark</property>
+              </object>
+            </child>
+            
+            <child type="end">
+              <object class="GtkButton" id="downloads_button">
+                <property name="icon-name">folder-download-symbolic</property>
+                <property name="tooltip-text">Downloads</property>
+              </object>
+            </child>
+            
+            <child type="end">
+              <object class="GtkMenuButton" id="menu_button">
+                <property name="icon-name">view-more-symbolic</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        
+        <!-- Tab Bar -->
+        <child>
+          <object class="AdwTabBar" id="tab_bar">
+            <property name="view">tab_view</property>
+            <property name="autohide">false</property>
+            <property name="end-action-widget">
+              <object class="GtkButton" id="new_tab_button">
+                <property name="icon-name">list-add-symbolic</property>
+              </object>
+            </property>
+          </object>
+        </child>
+        
+        <!-- Tab View -->
+        <child>
+          <object class="AdwTabView" id="tab_view">
+            <property name="vexpand">true</property>
+          </object>
+        </child>
+        
+        <!-- Find Bar -->
+        <child>
+          <object class="GtkBox" id="find_bar">
+            <property name="orientation">horizontal</property>
+            <property name="spacing">6</property>
+            <style>
+              <class name="toolbar"/>
+            </style>
+            <property name="visible">false</property>
+            <property name="halign">center</property>
+            
+            <child>
+              <object class="GtkSearchEntry" id="find_entry">
+                <property name="placeholder-text">Find on page...</property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="GtkButton" id="find_prev_button">
+                <property name="icon-name">go-up-symbolic</property>
+                <property name="tooltip-text">Find previous</property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="GtkButton" id="find_next_button">
+                <property name="icon-name">go-down-symbolic</property>
+                <property name="tooltip-text">Find next</property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="GtkButton" id="close_find_button">
+                <property name="icon-name">window-close-symbolic</property>
+                <property name="tooltip-text">Close find bar</property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+</interface> 

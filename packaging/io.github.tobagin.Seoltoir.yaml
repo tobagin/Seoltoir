@@ -1,0 +1,11 @@
+app-id: io.github.tobagin.seoltoir
+- install -Dm644 io.github.tobagin.seoltoir.png /app/share/icons/hicolor/1024x1024/apps/io.github.tobagin.seoltoir.png
+- for size in 256 64 48 32 24 16; do install -Dm644 data/icons/hicolor/${size}x${size}/apps/io.github.tobagin.seoltoir.png /app/share/icons/hicolor/${size}x${size}/apps/io.github.tobagin.seoltoir.png; done
+- install -Dm644 data/icons/hicolor/512x512/apps/io.github.tobagin.seoltoir.png /app/share/icons/hicolor/512x512/apps/io.github.tobagin.seoltoir.png
+- install -Dm644 data/io.github.tobagin.seoltoir.desktop /app/share/applications/io.github.tobagin.seoltoir.desktop
+- install -Dm644 data/io.github.tobagin.seoltoir.appdata.xml /app/share/metainfo/io.github.tobagin.seoltoir.appdata.xml
+- install -Dm644 data/io.github.tobagin.seoltoir.gschema.xml /app/share/glib-2.0/schemas/io.github.tobagin.seoltoir.gschema.xml
+sources:
+  - type: git
+    url: https://github.com/tobagin/Seoltoir.git
+    tag: 0.1.0 

@@ -1,0 +1,3 @@
+#!/bin/sh
+export PYTHONPATH="@PYTHON_SITE_PACKAGES@":$PYTHONPATH
+exec @PYTHON_EXECUTABLE@ -m seoltoir.main "$@"

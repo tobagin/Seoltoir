@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.tobagin.seoltoir</id>
+  <name>Seoltóir</name>
+  <summary>A privacy-focused web browser</summary>
+  <description>
+    <p>Seoltóir is a modern web browser built with privacy and user control at its core. It aims to provide a fast, secure, and ad-free browsing experience without any hidden telemetry or data collection.</p>
+    <ul>
+      <li>No telemetry or user data collection</li>
+      <li>Integrated ad and tracker blocking</li>
+      <li>Advanced cookie and storage management</li>
+      <li>Fingerprinting resistance</li>
+      <li>HTTPS Everywhere by default</li>
+      <li>DNS over HTTPS/TLS support</li>
+    </ul>
+  </description>
+  <developer_name>Thiago Fernandes</developer_name>
+  <project_license>GPL-3.0-or-later</project_license>
+  <metadata_license>CC0-1.0</metadata_license>
+  <url type="homepage">https://github.com/tobagin/seoltoir</url>
+  <url type="bugtracker">https://github.com/tobagin/seoltoir/issues</url>
+  <url type="vcs-browser">https://github.com/tobagin/seoltoir</url>
+  <provides>
+    <binary>seoltoir</binary>
+  </provides>
+  <launchable type="desktop-id">io.github.tobagin.seoltoir.desktop</launchable>
+  <icon type="stock">io.github.tobagin.seoltoir</icon>
+  <categories>
+    <category>Network</category>
+    <category>WebBrowser</category>
+  </categories>
+  <releases>
+    <release version="0.1.0" date="2025-06-11">
+      <description>
+        <p>Initial development release, establishing core UI and WebKit integration.</p>
+      </description>
+    </release>
+  </releases>
+</component> 

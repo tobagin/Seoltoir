@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="libadwaita" version="1.0"/>
+  
+  <object class="GtkBox" id="history_manager">
+    <property name="orientation">vertical</property>
+    <property name="spacing">0</property>
+    
+    <!-- Header Bar -->
+    <child>
+      <object class="AdwHeaderBar" id="header_bar">
+        <child type="end">
+          <object class="GtkButton" id="clear_button">
+            <property name="label">Clear History</property>
+          </object>
+        </child>
+      </object>
+    </child>
+    
+    <!-- Content -->
+    <child>
+      <object class="GtkBox" id="main_box">
+        <property name="orientation">vertical</property>
+        <property name="spacing">0</property>
+        
+        <child>
+          <object class="GtkSearchEntry" id="search_entry">
+            <property name="placeholder-text">Search history...</property>
+          </object>
+        </child>
+        
+        <child>
+          <object class="GtkScrolledWindow" id="scrolled_window">
+            <property name="vexpand">true</property>
+            <property name="min-content-width">360</property>
+            
+            <child>
+              <object class="GtkListBox" id="history_listbox">
+                <property name="selection-mode">none</property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+</interface> 

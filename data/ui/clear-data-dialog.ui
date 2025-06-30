@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="libadwaita" version="1.0"/>
+  
+  <template class="ClearBrowsingDataDialog" parent="AdwDialog">
+    <property name="modal">true</property>
+    <property name="default-width">400</property>
+    <property name="default-height">300</property>
+    <property name="title">Clear Browsing Data</property>
+    
+    <!-- Header Bar -->
+    <property name="titlebar">
+      <object class="AdwHeaderBar" id="header_bar">
+        <property name="title-widget">
+          <object class="AdwWindowTitle" id="window_title">
+            <property name="title">Clear Browsing Data</property>
+            <property name="subtitle">Select data to clear</property>
+          </object>
+        </property>
+      </object>
+    </property>
+    
+    <!-- Content -->
+    <child>
+      <object class="GtkBox" id="content_box">
+        <property name="orientation">vertical</property>
+        <property name="spacing">12</property>
+        <property name="margin-start">12</property>
+        <property name="margin-end">12</property>
+        <property name="margin-top">12</property>
+        <property name="margin-bottom">12</property>
+        
+        <!-- Time Range Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="time_range_group">
+            <property name="title">Time Range</property>
+            
+            <child>
+              <object class="AdwActionRow" id="time_range_row">
+                <property name="title">Clear data from:</property>
+                <property name="suffix">
+                  <object class="GtkDropDown" id="time_range_dropdown">
+                    <property name="valign">center</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+          </object>
+        </child>
+        
+        <!-- Data Types Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="data_types_group">
+            <property name="title">Data Types</property>
+            
+            <child>
+              <object class="AdwSwitchRow" id="check_history">
+                <property name="title">Browsing History</property>
+                <property name="subtitle">Records of pages you've visited.</property>
+                <property name="active">true</property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="AdwSwitchRow" id="check_cookies">
+                <property name="title">Cookies and Site Data</property>
+                <property name="subtitle">Logins, preferences, and site activity.</property>
+                <property name="active">true</property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="AdwSwitchRow" id="check_cache">
+                <property name="title">Cached Web Content</property>
+                <property name="subtitle">Images, scripts, and other files that speed up page loading.</property>
+                <property name="active">true</property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="AdwSwitchRow" id="check_downloads">
+                <property name="title">Download History</property>
+                <property name="subtitle">Records of files you've downloaded.</property>
+                <property name="active">true</property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface> 

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Seoltóir Browser
+Comment=A privacy-focused web browser
+Exec=seoltoir %u
+Terminal=false
+Type=Application
+Icon=io.github.tobagin.seoltoir
+Categories=Network;WebBrowser;
+StartupNotify=true
+MimeType=x-scheme-handler/http;x-scheme-handler/https;x-scheme-handler/ftp;text/html;text/xml;application/xhtml_xml;application/xml;application/vnd.mozilla.xul+xml;application/rss+xml;application/rdf+xml;image/webp;
+Keywords=browser;web;internet;privacy;adblock;tracker;secure;
+StartupWMClass=Seoltoir 

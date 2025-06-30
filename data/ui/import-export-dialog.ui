@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="libadwaita" version="1.0"/>
+  
+  <template class="ImportExportDialog" parent="AdwPreferencesWindow">
+    <property name="default-width">600</property>
+    <property name="default-height">400</property>
+    <property name="title">Import/Export Data</property>
+    
+    <!-- Main Page -->
+    <child>
+      <object class="AdwPreferencesPage" id="main_page">
+        <property name="title">Data Management</property>
+        <property name="icon-name">document-open-symbolic</property>
+        
+        <!-- Bookmarks Section -->
+        <child>
+          <object class="AdwPreferencesGroup" id="bookmarks_group">
+            <property name="title">Bookmarks</property>
+            
+            <child>
+              <object class="AdwActionRow" id="export_bookmarks_row">
+                <property name="title">Export Bookmarks</property>
+                <property name="suffix">
+                  <object class="GtkButton" id="export_bookmarks_button">
+                    <property name="label">Export to JSON</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="AdwActionRow" id="import_bookmarks_row">
+                <property name="title">Import Bookmarks</property>
+                <property name="suffix">
+                  <object class="GtkButton" id="import_bookmarks_button">
+                    <property name="label">Import from JSON</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+          </object>
+        </child>
+        
+        <!-- History Section -->
+        <child>
+          <object class="AdwPreferencesGroup" id="history_group">
+            <property name="title">History</property>
+            
+            <child>
+              <object class="AdwActionRow" id="export_history_row">
+                <property name="title">Export History</property>
+                <property name="suffix">
+                  <object class="GtkButton" id="export_history_button">
+                    <property name="label">Export to CSV</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="AdwActionRow" id="import_history_row">
+                <property name="title">Import History</property>
+                <property name="suffix">
+                  <object class="GtkButton" id="import_history_button">
+                    <property name="label">Import from CSV</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+          </object>
+        </child>
+        
+        <!-- Settings Section -->
+        <child>
+          <object class="AdwPreferencesGroup" id="settings_group">
+            <property name="title">Settings</property>
+            
+            <child>
+              <object class="AdwActionRow" id="export_settings_row">
+                <property name="title">Export Settings</property>
+                <property name="suffix">
+                  <object class="GtkButton" id="export_settings_button">
+                    <property name="label">Export to JSON</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="AdwActionRow" id="import_settings_row">
+                <property name="title">Import Settings</property>
+                <property name="suffix">
+                  <object class="GtkButton" id="import_settings_button">
+                    <property name="label">Import from JSON</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface> 
