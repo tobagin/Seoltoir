@@ -51,15 +51,19 @@ The application follows a modular Python architecture with clear separation of c
 
 1. **Core Browser Engine** (`src/seoltoir/browser_view.py`): WebKit6-based browser implementation that handles all web content rendering and navigation.
 
-2. **Privacy Layer**: Implements privacy features through:
+2. **Privacy Layer**: Implements comprehensive privacy features through:
    - Ad blocking via `adblock_parser.py` using python-abp filters
    - HTTPS enforcement through `https_everywhere_rules.py`
    - Isolated browsing contexts in `container_manager.py`
+   - Advanced fingerprinting resistance (canvas, font, hardware spoofing)
+   - Encrypted DNS support (DoH/DoT) with configurable providers
+   - Granular JavaScript and WebRTC control
 
 3. **Data Persistence**: SQLite-based storage managed by `database.py` with dedicated managers for:
    - History (`history_manager.py`)
    - Bookmarks (`bookmark_manager.py`)
    - Downloads (`download_manager.py`)
+   - Custom search engines (`search_engine_manager.py`)
 
 4. **UI Architecture**: GTK4/Libadwaita-based interface where:
    - UI definitions live in `data/ui/*.ui` files (GTK Builder format)
@@ -68,9 +72,16 @@ The application follows a modular Python architecture with clear separation of c
    - Main window (`window.py`) contains the browser view and navigation controls
 
 5. **Configuration System**: 
-   - GSettings schema at `data/io.github.tobagin.seoltoir.gschema.xml` defines all application settings
+   - GSettings schema at `data/io.github.tobagin.seoltoir.gschema.xml` defines all application settings (25+ configuration options)
    - Settings are accessed throughout the codebase via GSettings API
    - User preferences UI in `preferences_window.py`
+   - Search engine dialog in `search_engine_dialog.py`
+   - Site-specific settings in `site_settings_dialog.py`
+
+6. **Search and Suggestions System**:
+   - OpenSearch parser (`opensearch_parser.py`) for automatic search engine discovery
+   - Search suggestions client (`search_suggestions_client.py`) for real-time search suggestions
+   - Comprehensive search engine management with custom engines support
 
 ## Key Development Patterns
 
@@ -104,9 +115,37 @@ The application follows a modular Python architecture with clear separation of c
 
 4. **GTK Version**: Requires GTK 4.18+ and Libadwaita 1.7+. Use only stable API, avoid deprecated functions.
 
+## New Features Implemented
+
+### Core Browser Features
+- **Zoom Controls**: Zoom in/out/reset with visual indicator and keyboard shortcuts
+- **Print Support**: Print current web page with system print dialog
+- **Enhanced Address Bar**: Integrated search with configurable search engines
+
+### Privacy & Security Features
+- **Fingerprinting Resistance**: Canvas spoofing, font enumeration spoofing, hardware concurrency spoofing
+- **DNS Privacy**: DoH (DNS over HTTPS) and DoT (DNS over TLS) support with configurable providers
+- **Cookie Management**: Enhanced cookie control with bookmark-based retention
+- **JavaScript Control**: Global and per-site JavaScript management
+- **WebRTC Control**: Option to disable WebRTC to prevent IP leaks
+- **User Agent Customization**: Configurable user agent strings
+
+### Search Engine Management
+- **Custom Search Engines**: Add, edit, and remove custom search engines
+- **OpenSearch Support**: Automatic discovery and parsing of OpenSearch XML
+- **Search Suggestions**: Real-time search suggestions from configured providers
+- **Keyword Shortcuts**: Quick search using custom keywords
+
+### User Interface Enhancements
+- **Redesigned Preferences**: Comprehensive settings window with organized categories
+- **Site Settings Dialog**: Per-site management of JavaScript and storage
+- **Search Engine Dialog**: Dedicated UI for managing search engines
+- **Visual Feedback**: Toast notifications for privacy events
+
 ## Testing Approach
 
 Currently minimal testing infrastructure. When implementing tests:
 - Place tests in `tests/` directory
 - Consider GTK's test harness for UI testing
 - Mock WebKit for browser functionality tests
+- Test privacy features with appropriate mock services

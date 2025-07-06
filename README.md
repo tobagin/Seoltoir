@@ -57,6 +57,8 @@ Seoltóir has evolved significantly through multiple development tiers to offer 
     Find-in-Page: Quickly search for text within the current webpage.
 
     Print Functionality: Print the current webpage using system print dialogs.
+    
+    Zoom Controls: Zoom in/out/reset functionality with visual indicator and keyboard shortcuts (Ctrl+Plus, Ctrl+Minus, Ctrl+0).
 
 ⚙️ Customization & Management
 
@@ -68,7 +70,7 @@ Seoltóir has evolved significantly through multiple development tiers to offer 
 
     Bookmark Management: Add, view, and remove local bookmarks.
 
-    Search Engine Management: Full UI in preferences to add, edit, delete, and set default custom search engines.
+    Search Engine Management: Full UI in preferences to add, edit, delete, and set default custom search engines with OpenSearch support and real-time search suggestions.
 
     Appearance Customization: Control default font family and size for web content, and override system theme with light/dark mode.
 
@@ -152,11 +154,11 @@ Seoltóir is packaged as a Flatpak for easy distribution and sandboxing.
 
     Build the Flatpak:
 
-    flatpak-builder --force-clean build-dir io.github.tobagin.seoltoir.yaml
+    flatpak-builder --force-clean build-dir packaging/io.github.tobagin.seoltoir-local.yml
 
     Install the Flatpak to your local user repository:
 
-    flatpak-builder --user --install build-dir io.github.tobagin.seoltoir.yaml
+    flatpak-builder --user --install build-dir packaging/io.github.tobagin.seoltoir-local.yml
 
     Run the Flatpak application:
 

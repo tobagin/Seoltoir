@@ -58,3 +58,5 @@ site/           # The generated site directory
 *.egg-info/
 dist/
 build/
+
+.claude

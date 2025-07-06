@@ -27,13 +27,13 @@ The easiest way to install and run Seoltóir is via Flatpak, which provides a sa
         ```
     b.  **Build the Flatpak:**
         ```bash
-        flatpak-builder --force-clean build-dir io.github.tobagin.seoltoir.yaml
+        flatpak-builder --force-clean build-dir packaging/io.github.tobagin.seoltoir-local.yml
         ```
         This command will download all necessary dependencies and build the Flatpak application. This might take some time on the first run.
 
     c.  **Install the built Flatpak to your local user repository:**
         ```bash
-        flatpak-builder --user --install build-dir io.github.tobagin.seoltoir.yaml
+        flatpak-builder --user --install build-dir packaging/io.github.tobagin.seoltoir-local.yml
         ```
 
 4.  **Run Seoltóir:**

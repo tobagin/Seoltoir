@@ -13,11 +13,17 @@ Access these settings in Preferences > General.
 
         Access: In Preferences > General > Search Engine Management.
 
-        Add New: Click "Add New" to add custom search engines. Provide a name and the URL (use %s as a placeholder for your search query, e.g., https://www.google.com/search?q=%s).
+        Add New: Click "Add New" to add custom search engines. Provide a name, URL (use %s as a placeholder for your search query, e.g., https://www.google.com/search?q=%s), optional keyword for quick searches, favicon URL, and suggestions URL.
 
-        Edit: Modify existing search engines (name or URL).
+        OpenSearch Support: Seoltóir can automatically detect and configure search engines from OpenSearch XML files.
+
+        Search Suggestions: Real-time search suggestions appear as you type in the address bar, powered by your configured search engines.
+
+        Edit: Modify existing search engines (name, URL, keyword, favicon, or suggestions URL).
 
         Delete: Remove custom search engines from your list.
+
+        Set as Default: Make any search engine your default for address bar searches.
 
 2. Downloads
 
@@ -71,6 +77,16 @@ For a distraction-free reading experience, Seoltóir offers a basic reading mode
 
     Print:
 
-        Access: Menu > Print....
+        Access: Menu > Print... or press Ctrl+P.
 
         Usage: Opens your system's print dialog to print the current webpage.
+
+    Zoom Controls:
+
+        Zoom In: Menu > Zoom In or press Ctrl+Plus to make web content larger.
+
+        Zoom Out: Menu > Zoom Out or press Ctrl+Minus to make web content smaller.
+
+        Reset Zoom: Menu > Reset Zoom or press Ctrl+0 to return to 100% zoom.
+
+        Visual Indicator: The current zoom level is displayed in the header bar when not at 100%.
