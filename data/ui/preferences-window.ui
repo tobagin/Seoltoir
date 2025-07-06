@@ -3,14 +3,13 @@
   <requires lib="gtk" version="4.0"/>
   <requires lib="libadwaita" version="1.0"/>
   
-  <template class="SeoltoirPreferencesWindow" parent="AdwPreferencesWindow">
-    <property name="default-width">600</property>
-    <property name="default-height">400</property>
-    <property name="title">Seoltóir Preferences</property>
-    
-    <!-- General Page -->
-    <child>
-      <object class="AdwPreferencesPage" id="general_page">
+  <!-- Font Dialog for Font Selection -->
+  <object class="GtkFontDialog" id="font_dialog">
+    <property name="title">Select Font</property>
+  </object>
+  
+  <!-- General Page -->
+  <object class="AdwPreferencesPage" id="general_page">
         <property name="title">General</property>
         <property name="icon-name">document-page-setup-symbolic</property>
         
@@ -22,7 +21,6 @@
             <child>
               <object class="AdwEntryRow" id="homepage_row">
                 <property name="title">Homepage</property>
-                <property name="placeholder-text">e.g., https://www.duckduckgo.com</property>
               </object>
             </child>
           </object>
@@ -36,79 +34,22 @@
             <child>
               <object class="AdwActionRow" id="download_dir_row">
                 <property name="title">Default Download Directory</property>
-                <property name="suffix">
-                  <object class="GtkFileChooserButton" id="download_dir_chooser">
-                    <property name="title">Select Download Directory</property>
-                    <property name="action">select-folder</property>
+                <child type="suffix">
+                  <object class="GtkButton" id="download_dir_button">
+                    <property name="label">Choose Folder</property>
                     <property name="valign">center</property>
                   </object>
-                </property>
+                </child>
+              </object>
+            </child>
+            
+            <child>
+              <object class="AdwSwitchRow" id="ask_download_location_row">
+                <property name="title">Always ask where to save files</property>
               </object>
             </child>
           </object>
         </child>
-      </object>
-    </child>
-    
-    <!-- Privacy Page -->
-    <child>
-      <object class="AdwPreferencesPage" id="privacy_page">
-        <property name="title">Privacy</property>
-        <property name="icon-name">security-high-symbolic</property>
-        
-        <!-- Content Blocking Group -->
-        <child>
-          <object class="AdwPreferencesGroup" id="content_blocking_group">
-            <property name="title">Content Blocking</property>
-            
-            <child>
-              <object class="AdwSwitchRow" id="ad_blocking_switch">
-                <property name="title">Block Ads</property>
-                <property name="subtitle">Block advertisements and tracking scripts</property>
-              </object>
-            </child>
-            
-            <child>
-              <object class="AdwSwitchRow" id="tracker_blocking_switch">
-                <property name="title">Block Trackers</property>
-                <property name="subtitle">Block tracking scripts and analytics</property>
-              </object>
-            </child>
-            
-            <child>
-              <object class="AdwSwitchRow" id="https_everywhere_switch">
-                <property name="title">HTTPS Everywhere</property>
-                <property name="subtitle">Force secure connections when available</property>
-              </object>
-            </child>
-          </object>
-        </child>
-        
-        <!-- Referrer Policy Group -->
-        <child>
-          <object class="AdwPreferencesGroup" id="referrer_policy_group">
-            <property name="title">Referrer Policy</property>
-            
-            <child>
-              <object class="AdwActionRow" id="referrer_policy_row">
-                <property name="title">Referrer Policy</property>
-                <property name="suffix">
-                  <object class="GtkDropDown" id="referrer_policy_dropdown">
-                    <property name="valign">center</property>
-                  </object>
-                </property>
-              </object>
-            </child>
-          </object>
-        </child>
-      </object>
-    </child>
-    
-    <!-- Search Engines Page -->
-    <child>
-      <object class="AdwPreferencesPage" id="search_engines_page">
-        <property name="title">Search Engines</property>
-        <property name="icon-name">system-search-symbolic</property>
         
         <!-- Search Engine Management Group -->
         <child>
@@ -116,13 +57,8 @@
             <property name="title">Search Engine Management</property>
             
             <child>
-              <object class="AdwActionRow" id="default_search_engine_row">
+              <object class="AdwComboRow" id="default_search_engine_combo">
                 <property name="title">Default Search Engine</property>
-                <property name="suffix">
-                  <object class="GtkDropDown" id="default_search_engine_dropdown">
-                    <property name="valign">center</property>
-                  </object>
-                </property>
               </object>
             </child>
             
@@ -149,11 +85,202 @@
           </object>
         </child>
       </object>
-    </child>
-    
-    <!-- Appearance Page -->
-    <child>
-      <object class="AdwPreferencesPage" id="appearance_page">
+  
+  <!-- Privacy & Security Page -->
+  <object class="AdwPreferencesPage" id="privacy_page">
+        <property name="title">Privacy &amp; Security</property>
+        <property name="icon-name">dialog-password-symbolic</property>
+        
+        <!-- Content Blocking Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="content_blocking_group">
+            <property name="title">Content Blocking</property>
+            
+            <child>
+              <object class="AdwSwitchRow" id="ad_blocking_row">
+                <property name="title">Enable Ad and Tracker Blocking</property>
+                <property name="subtitle">Blocks ads, tracking scripts, and malicious domains.</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        
+        <!-- Fingerprinting Resistance Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="user_agent_group">
+            <property name="title">Fingerprinting Resistance</property>
+            
+            <child>
+              <object class="AdwEntryRow" id="user_agent_row">
+                <property name="title">User Agent String</property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="AdwSwitchRow" id="canvas_spoofing_row">
+                <property name="title">Enable Canvas Fingerprinting Spoofing</property>
+                <property name="subtitle">Adds noise to canvas rendering to make fingerprinting harder.</property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="AdwSwitchRow" id="font_spoofing_row">
+                <property name="title">Enable Font Enumeration Spoofing</property>
+                <property name="subtitle">Spoofs the list of fonts reported to websites.</property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="AdwSwitchRow" id="hardware_spoofing_row">
+                <property name="title">Enable Hardware Concurrency Spoofing</property>
+                <property name="subtitle">Spoofs reported CPU core count and device memory.</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        
+        <!-- Cookie Management Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="cookie_group">
+            <property name="title">Cookie Management</property>
+            
+            <child>
+              <object class="AdwSwitchRow" id="delete_cookies_row">
+                <property name="title">Delete non-bookmarked cookies on close</property>
+                <property name="subtitle">Retains cookies only for bookmarked websites.</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        
+        <!-- WebRTC Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="webrtc_group">
+            <property name="title">WebRTC</property>
+            
+            <child>
+              <object class="AdwSwitchRow" id="webrtc_row">
+                <property name="title">Enable WebRTC</property>
+                <property name="subtitle">Disabling can prevent IP leaks, but may break video/audio calls.</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        
+        <!-- Adblock Filter Lists Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="adblock_group">
+            <property name="title">Adblock Filter Lists</property>
+            
+            <child>
+              <object class="AdwEntryRow" id="adblock_urls_row">
+                <property name="title">Filter List URLs</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        
+        <!-- DNS over HTTPS Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="doh_group">
+            <property name="title">DNS over HTTPS</property>
+            
+            <child>
+              <object class="AdwSwitchRow" id="doh_enable_row">
+                <property name="title">Enable DNS over HTTPS</property>
+                <property name="subtitle">Encrypts DNS queries to prevent snooping. Mutually exclusive with DoT.</property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="AdwEntryRow" id="doh_provider_row">
+                <property name="title">DoH Provider URL</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        
+        <!-- DNS over TLS Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="dot_group">
+            <property name="title">DNS over TLS</property>
+            
+            <child>
+              <object class="AdwSwitchRow" id="dot_enable_row">
+                <property name="title">Enable DNS over TLS</property>
+                <property name="subtitle">Encrypts DNS queries using TLS. Mutually exclusive with DoH.</property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="AdwEntryRow" id="dot_provider_host_row">
+                <property name="title">DoT Provider Host</property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="AdwSpinRow" id="dot_provider_port_row">
+                <property name="title">DoT Provider Port</property>
+                <property name="adjustment">
+                  <object class="GtkAdjustment">
+                    <property name="lower">1</property>
+                    <property name="upper">65535</property>
+                    <property name="value">853</property>
+                    <property name="step-increment">1</property>
+                    <property name="page-increment">10</property>
+                  </object>
+                </property>
+                <property name="digits">0</property>
+                <property name="climb-rate">1</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        
+        <!-- HTTPS Everywhere Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="https_everywhere_group">
+            <property name="title">HTTPS Everywhere</property>
+            
+            <child>
+              <object class="AdwSwitchRow" id="https_enable_row">
+                <property name="title">Enable HTTPS Everywhere Rules</property>
+                <property name="subtitle">Automatically upgrades HTTP to HTTPS where available based on a ruleset.</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        
+        <!-- Referrer Policy Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="referrer_group">
+            <property name="title">Referrer Policy</property>
+            
+            <child>
+              <object class="AdwComboRow" id="referrer_policy_combo">
+                <property name="title">Referrer Policy</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        
+        <!-- JavaScript Control Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="js_group">
+            <property name="title">JavaScript Control</property>
+            
+            <child>
+              <object class="AdwSwitchRow" id="js_enable_row">
+                <property name="title">Enable JavaScript Globally</property>
+                <property name="subtitle">Disable JavaScript for all websites by default. Use per-site settings to override.</property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+  
+  <!-- Appearance Page -->
+  <object class="AdwPreferencesPage" id="appearance_page">
         <property name="title">Appearance</property>
         <property name="icon-name">preferences-desktop-theme-symbolic</property>
         
@@ -163,18 +290,38 @@
             <property name="title">Theme</property>
             
             <child>
-              <object class="AdwActionRow" id="theme_variant_row">
+              <object class="AdwSwitchRow" id="override_theme_row">
+                <property name="title">Override System Theme</property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="AdwComboRow" id="theme_variant_combo">
                 <property name="title">Theme Variant</property>
-                <property name="suffix">
-                  <object class="GtkDropDown" id="theme_variant_dropdown">
+              </object>
+            </child>
+          </object>
+        </child>
+        
+        <!-- Fonts Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="font_group">
+            <property name="title">Fonts</property>
+            
+            <child>
+              <object class="AdwActionRow" id="font_row">
+                <property name="title">Default Font</property>
+                <property name="subtitle">Font family and size for web content</property>
+                <child type="suffix">
+                  <object class="GtkFontDialogButton" id="font_button">
                     <property name="valign">center</property>
+                    <property name="dialog">font_dialog</property>
                   </object>
-                </property>
+                </child>
               </object>
             </child>
           </object>
         </child>
       </object>
-    </child>
-  </template>
-</interface> 
+  
+</interface>

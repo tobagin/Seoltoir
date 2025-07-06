@@ -42,6 +42,9 @@ install_data(
     'src/seoltoir/bookmark_manager.py',
     'src/seoltoir/import_export_dialog.py',
     'src/seoltoir/container_manager.py',
+    'src/seoltoir/search_engine_manager.py',
+    'src/seoltoir/opensearch_parser.py',
+    'src/seoltoir/search_suggestions_client.py',
     'src/seoltoir/ui_loader.py',
     'src/seoltoir/debug.py',
   ],
@@ -55,6 +58,8 @@ data_dir = get_option('datadir')
 install_data(
   [
     'data/ui/main-window.ui',
+    'data/ui/main-content.ui',
+    'data/ui/menu.ui',
     'data/ui/preferences-window.ui',
     'data/ui/search-engine-dialog.ui',
     'data/ui/clear-data-dialog.ui',
@@ -113,6 +118,20 @@ install_data(
 install_data(
   'data/icons/hicolor/512x512/apps/io.github.tobagin.seoltoir.png',
   install_dir: data_dir / 'icons' / 'hicolor' / '512x512' / 'apps',
+)
+
+# Symbolic SVG icons for UI elements
+install_data(
+  'data/icons/hicolor/scalable/apps/io.github.tobagin.seoltoir-tab-add-symbolic.svg',
+  install_dir: data_dir / 'icons' / 'hicolor' / 'scalable' / 'apps',
+)
+install_data(
+  'data/icons/hicolor/scalable/apps/io.github.tobagin.seoltoir-tab-add-private-symbolic.svg',
+  install_dir: data_dir / 'icons' / 'hicolor' / 'scalable' / 'apps',
+)
+install_data(
+  'data/icons/hicolor/scalable/apps/io.github.tobagin.seoltoir-cookies-symbolic.svg',
+  install_dir: data_dir / 'icons' / 'hicolor' / 'scalable' / 'apps',
 )
 
 # --- Executable Script ---

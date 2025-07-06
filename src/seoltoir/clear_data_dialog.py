@@ -82,8 +82,8 @@ class ClearBrowsingDataDialog(Adw.Dialog):
                 debug_print(f"Cleared cookies from container: {container_id}")
         else:
             # Fallback to default context
-        cookie_manager = self.web_context.get_cookie_manager()
-        cookie_manager.remove_all_cookies()
+            cookie_manager = self.web_context.get_cookie_manager()
+            cookie_manager.remove_all_cookies()
             debug_print("Cleared cookies from default context")
         
         # Clear other site data from all containers
@@ -111,17 +111,17 @@ class ClearBrowsingDataDialog(Adw.Dialog):
                 debug_print(f"Cleared site data from container: {container_id}")
         else:
             # Fallback to default context
-        data_manager = self.web_context.get_website_data_manager()
-        types_to_clear = WebKit.WebsiteDataTypes.DISK_CACHE | \
-                         WebKit.WebsiteDataTypes.MEMORY_CACHE | \
-                         WebKit.WebsiteDataTypes.OFFLINE_WEB_APPLICATION_CACHE | \
-                         WebKit.WebsiteDataTypes.LOCAL_STORAGE | \
-                         WebKit.WebsiteDataTypes.INDEXEDDB_DATABASES | \
-                         WebKit.WebsiteDataTypes.WEBSQL_DATABASES | \
-                         WebKit.WebsiteDataTypes.PLUGINS_DATA | \
-                         WebKit.WebsiteDataTypes.NETWORK_CACHE | \
-                         WebKit.WebsiteDataTypes.DEVICE_SPECIFIC_MEDIA_DEVICES_DATA | \
-                         WebKit.WebsiteDataTypes.FILE_SYSTEM_DATA | \
+            data_manager = self.web_context.get_website_data_manager()
+            types_to_clear = WebKit.WebsiteDataTypes.DISK_CACHE | \
+                             WebKit.WebsiteDataTypes.MEMORY_CACHE | \
+                             WebKit.WebsiteDataTypes.OFFLINE_WEB_APPLICATION_CACHE | \
+                             WebKit.WebsiteDataTypes.LOCAL_STORAGE | \
+                             WebKit.WebsiteDataTypes.INDEXEDDB_DATABASES | \
+                             WebKit.WebsiteDataTypes.WEBSQL_DATABASES | \
+                             WebKit.WebsiteDataTypes.PLUGINS_DATA | \
+                             WebKit.WebsiteDataTypes.NETWORK_CACHE | \
+                             WebKit.WebsiteDataTypes.DEVICE_SPECIFIC_MEDIA_DEVICES_DATA | \
+                             WebKit.WebsiteDataTypes.FILE_SYSTEM_DATA | \
                              WebKit.WebsiteDataTypes.WEBSQL_DATABASES
             
             start_time = 0
@@ -137,15 +137,14 @@ class ClearBrowsingDataDialog(Adw.Dialog):
             for container_id in app.container_manager.container_contexts:
                 context = app.container_manager.container_contexts[container_id]
                 data_manager = context.get_website_data_manager()
-        
-        types_to_clear = WebKit.WebsiteDataTypes.DISK_CACHE | WebKit.WebsiteDataTypes.MEMORY_CACHE
+                types_to_clear = WebKit.WebsiteDataTypes.DISK_CACHE | WebKit.WebsiteDataTypes.MEMORY_CACHE
                 data_manager.clear(types_to_clear, 0, None, None)
                 debug_print(f"Cleared cache from container: {container_id}")
         else:
             # Fallback to default context
             data_manager = self.web_context.get_website_data_manager()
             types_to_clear = WebKit.WebsiteDataTypes.DISK_CACHE | WebKit.WebsiteDataTypes.MEMORY_CACHE
-        data_manager.clear(types_to_clear, 0, None, None)
+            data_manager.clear(types_to_clear, 0, None, None)
             debug_print("Cleared cache from default context")
         
         debug_print("Cache cleared from all containers.")

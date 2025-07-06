@@ -42,6 +42,32 @@
     
     <section>
       <item>
+        <attribute name="label">Zoom _In</attribute>
+        <attribute name="action">win.zoom_in</attribute>
+        <attribute name="accel">&lt;Primary&gt;plus</attribute>
+      </item>
+      <item>
+        <attribute name="label">Zoom _Out</attribute>
+        <attribute name="action">win.zoom_out</attribute>
+        <attribute name="accel">&lt;Primary&gt;minus</attribute>
+      </item>
+      <item>
+        <attribute name="label">_Reset Zoom</attribute>
+        <attribute name="action">win.zoom_reset</attribute>
+        <attribute name="accel">&lt;Primary&gt;0</attribute>
+      </item>
+    </section>
+    
+    <section>
+      <item>
+        <attribute name="label">_Print</attribute>
+        <attribute name="action">win.print_current_page</attribute>
+        <attribute name="accel">&lt;Primary&gt;p</attribute>
+      </item>
+    </section>
+    
+    <section>
+      <item>
         <attribute name="label">_Settings</attribute>
         <attribute name="action">app.show_preferences</attribute>
       </item>

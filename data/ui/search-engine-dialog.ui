@@ -44,6 +44,37 @@
             <property name="placeholder-text">e.g., https://www.google.com/search?q=%s</property>
           </object>
         </child>
+        
+        <child>
+          <object class="AdwEntryRow" id="keyword_entry">
+            <property name="title">Keyword (Optional)</property>
+            <property name="subtitle">Short keyword for quick searches</property>
+            <property name="placeholder-text">e.g., g</property>
+          </object>
+        </child>
+        
+        <child>
+          <object class="AdwEntryRow" id="favicon_url_entry">
+            <property name="title">Favicon URL (Optional)</property>
+            <property name="subtitle">Icon URL for this search engine</property>
+            <property name="placeholder-text">e.g., https://www.google.com/favicon.ico</property>
+          </object>
+        </child>
+        
+        <child>
+          <object class="AdwEntryRow" id="suggestions_url_entry">
+            <property name="title">Suggestions URL (Optional)</property>
+            <property name="subtitle">URL for search suggestions (use %s for query)</property>
+            <property name="placeholder-text">e.g., https://suggestqueries.google.com/complete/search?client=firefox&q=%s</property>
+          </object>
+        </child>
+        
+        <child>
+          <object class="AdwSwitchRow" id="default_switch">
+            <property name="title">Set as Default</property>
+            <property name="subtitle">Make this the default search engine</property>
+          </object>
+        </child>
       </object>
     </child>
   </template>

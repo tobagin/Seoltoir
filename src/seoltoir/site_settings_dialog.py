@@ -21,14 +21,17 @@ class SiteSettingsDialog(Adw.PreferencesWindow):
         self.settings = Gio.Settings.new(application.get_application_id())
         # Use the provided web_context or fall back to default
         self.web_context = web_context or WebKit.WebContext.get_default()
-        self.website_data_manager = self.web_context.get_website_data_manager
-        self.cookie_manager = self.website_data_manager.get_cookie_manager()
+        self.network_session = self.web_context.get_network_session() if hasattr(self.web_context, 'get_network_session') else WebKit.NetworkSession.get_default()
+        self.website_data_manager = self.network_session.get_website_data_manager()
+        self.cookie_manager = self.network_session.get_cookie_manager()
 
         # Load UI from file
-        self.window, self.builder = UILoader.load_template('site-settings-dialog.ui', 'SiteSettingsDialog', application=application)
+        ui_path = UILoader.get_ui_file_path('site-settings-dialog.ui')
+        self.builder = Gtk.Builder()
+        self.builder.add_from_file(ui_path)
         
         # Get references to UI widgets
-        self.js_dropdown = self.builder.get_object('js_dropdown')
+        self.js_row = self.builder.get_object('js_row')
         self.cookie_listbox = self.builder.get_object('cookie_listbox')
         self.delete_all_cookies_button = self.builder.get_object('delete_all_cookies_button')
         self.other_storage_listbox = self.builder.get_object('other_storage_listbox')
@@ -40,19 +43,19 @@ class SiteSettingsDialog(Adw.PreferencesWindow):
         self.add(permissions_page)
         self.add(cookies_page)
         
-        # Set up JavaScript dropdown
+        # Set up JavaScript combo row
         js_model = Gtk.StringList.new(["Allow", "Block"])
-        self.js_dropdown.set_model(js_model)
-        self.js_dropdown.set_selected(0) # Default to Allow
+        self.js_row.set_model(js_model)
+        self.js_row.set_selected(0) # Default to Allow
         
         # Connect button signals
         self.delete_all_cookies_button.connect("clicked", self._on_delete_all_cookies_clicked)
         self.delete_all_other_storage_button.connect("clicked", self._on_delete_all_other_storage_clicked)
 
         if self.current_domain:
-            self.set_subtitle(f"Settings for {self.current_domain}")
+            self.set_title(f"Site Settings - {self.current_domain}")
         else:
-            self.set_subtitle("No site selected")
+            self.set_title("Site Settings")
 
         self.load_cookies() # Load cookies for the current site
         self.load_other_site_data()
@@ -87,19 +90,19 @@ class SiteSettingsDialog(Adw.PreferencesWindow):
                     break
         
         # Set dropdown selection
-        model_strings = [self.js_dropdown.get_model().get_string(i) for i in range(self.js_dropdown.get_model().get_n_items())]
+        model_strings = [self.js_row.get_model().get_string(i) for i in range(self.js_row.get_model().get_n_items())]
         try:
             selected_index = model_strings.index(current_site_policy)
-            self.js_dropdown.set_selected(selected_index)
+            self.js_row.set_selected(selected_index)
         except ValueError:
-            self.js_dropdown.set_selected(0) # Fallback to Default
+            self.js_row.set_selected(0) # Fallback to Default
 
         # Update subtitle to indicate effective policy
         if current_site_policy == "Default (Global)":
             effective_policy = "enabled" if global_js_enabled else "disabled"
-            self.js_dropdown.set_subtitle(f"Currently: {effective_policy} (based on global setting)")
+            self.js_row.set_subtitle(f"Currently: {effective_policy} (based on global setting)")
         else:
-            self.js_dropdown.set_subtitle(f"Currently: {current_site_policy.lower()}")
+            self.js_row.set_subtitle(f"Currently: {current_site_policy.lower()}")
 
     def _on_js_policy_changed(self, dropdown, pspec):
         selected_item = dropdown.get_selected_item()
@@ -126,26 +129,27 @@ class SiteSettingsDialog(Adw.PreferencesWindow):
 
     def load_cookies(self):
         """Loads cookies for the current domain and populates the listbox."""
-        for child in self.cookie_listbox.get_children():
+        child = self.cookie_listbox.get_first_child()
+        while child:
+            next_child = child.get_next_sibling()
             self.cookie_listbox.remove(child)
+            child = next_child
 
         if not self.current_domain:
             return
 
-        # WebKit.CookieManager.get_cookies (context, uri, priority, cancellable, callback)
+        # WebKit.CookieManager.get_cookies (uri, cancellable, callback)
         self.cookie_manager.get_cookies(
-            WebKit.WebContext.get_default(), # Use default web context for fetching cookies
             self.current_uri, # Use current URI to get relevant cookies
-            GLib.PRIORITY_DEFAULT,
             None,
             self._on_get_cookies_ready
         )
-        # print(f"Requesting cookies for {self.current_uri}")
+        print(f"Requesting cookies for {self.current_uri}")
 
     def _on_get_cookies_ready(self, source_object, res):
         try:
             cookies = self.cookie_manager.get_cookies_finish(res)
-            # print(f"Received {len(cookies)} cookies for {self.current_domain}")
+            print(f"Received {len(cookies) if cookies else 0} cookies for {self.current_domain}")
             
             if not cookies:
                 no_cookies_row = Adw.ActionRow.new()
@@ -154,21 +158,42 @@ class SiteSettingsDialog(Adw.PreferencesWindow):
                 return
 
             for cookie in cookies:
-                # Filter to only show cookies for the current domain for clarity
-                # WebKit's get_cookies is more specific to the URI provided, so this filter might be redundant
-                # but good for safety.
-                # A cookie's domain might be .example.com, so use endswith
-                if cookie.get_domain().endswith(self.current_domain) or cookie.get_domain() == self.current_domain:
-                    row = Adw.ActionRow.new()
-                    row.set_title(cookie.get_name())
-                    row.set_subtitle(f"Value: {cookie.get_value()} | Path: {cookie.get_path()} | Expires: {GLib.DateTime.new_from_unix(cookie.get_expires()).format("%Y-%m-%d %H:%M:%S") if cookie.get_expires() else 'Session'}")
+                try:
+                    cookie_domain = cookie.get_domain()
+                    print(f"Processing cookie: {cookie.get_name()} for domain: {cookie_domain}")
                     
-                    delete_button = Gtk.Button.new_from_icon_name("edit-delete-symbolic")
-                    delete_button.set_tooltip_text("Delete this cookie")
-                    delete_button.connect("clicked", self._on_delete_single_cookie_clicked, cookie)
-                    row.add_suffix(delete_button)
-                    
-                    self.cookie_listbox.append(row)
+                    # Filter to only show cookies for the current domain for clarity
+                    if cookie_domain.endswith(self.current_domain) or cookie_domain == self.current_domain:
+                        row = Adw.ActionRow.new()
+                        row.set_title(cookie.get_name())
+                        
+                        # Build subtitle safely
+                        cookie_value = cookie.get_value()
+                        cookie_path = cookie.get_path()
+                        expires = cookie.get_expires()
+                        expires_str = "Session"
+                        print(f"Cookie {cookie.get_name()} expires value: {expires}, type: {type(expires)}")
+                        if expires is not None:
+                            try:
+                                # expires is already a GLib.DateTime object
+                                expires_str = expires.format("%Y-%m-%d %H:%M:%S")
+                            except Exception as date_error:
+                                print(f"Date parsing error for cookie {cookie.get_name()}: {date_error}")
+                                expires_str = "Unknown"
+                        
+                        row.set_subtitle(f"Value: {cookie_value[:50]}{'...' if len(cookie_value) > 50 else ''} | Path: {cookie_path} | Expires: {expires_str}")
+                        
+                        delete_button = Gtk.Button.new_from_icon_name("edit-delete-symbolic")
+                        delete_button.set_tooltip_text("Delete this cookie")
+                        delete_button.set_valign(Gtk.Align.CENTER)
+                        delete_button.connect("clicked", self._on_delete_single_cookie_clicked, cookie)
+                        row.add_suffix(delete_button)
+                        
+                        self.cookie_listbox.append(row)
+                        print(f"Added cookie {cookie.get_name()} to UI")
+                except Exception as cookie_error:
+                    print(f"Error processing individual cookie: {cookie_error}")
+                    continue
         except Exception as e:
             debug_print(f"Error getting cookies: {e}")
             error_row = Adw.ActionRow.new()
@@ -187,12 +212,38 @@ class SiteSettingsDialog(Adw.PreferencesWindow):
         if not self.current_domain:
             return
         
-        self.cookie_manager.delete_cookies_for_domain(self.current_domain)
-        self.load_cookies() # Reload the list
-        debug_print(f"Deleted all cookies for domain: {self.current_domain}")
-        self.get_application().get_window_by_id(1)._on_show_notification(
-            None, f"All cookies deleted for {self.current_domain}"
+        # In WebKit6, we need to get cookies first and then delete them individually
+        self.cookie_manager.get_cookies(
+            self.current_uri,
+            None,
+            self._on_get_cookies_for_deletion
         )
+
+    def _on_get_cookies_for_deletion(self, source_object, res):
+        try:
+            cookies = self.cookie_manager.get_cookies_finish(res)
+            
+            if not cookies:
+                self.get_application().get_window_by_id(1)._on_show_notification(
+                    None, f"No cookies found for {self.current_domain}"
+                )
+                return
+            
+            # Delete each cookie individually
+            for cookie in cookies:
+                if cookie.get_domain().endswith(self.current_domain) or cookie.get_domain() == self.current_domain:
+                    self.cookie_manager.delete_cookie(cookie)
+            
+            self.load_cookies() # Reload the list
+            debug_print(f"Deleted all cookies for domain: {self.current_domain}")
+            self.get_application().get_window_by_id(1)._on_show_notification(
+                None, f"All cookies deleted for {self.current_domain}"
+            )
+        except Exception as e:
+            debug_print(f"Error deleting cookies: {e}")
+            self.get_application().get_window_by_id(1)._on_show_notification(
+                None, f"Error deleting cookies for {self.current_domain}"
+            )
 
     # --- Tier 8: Other Site Storage Management ---
     def load_other_site_data(self):
@@ -201,8 +252,11 @@ class SiteSettingsDialog(Adw.PreferencesWindow):
         WebKit's API for granular per-origin data sizes is complex.
         For now, we just list the types and provide a clear button.
         """
-        for child in self.other_storage_listbox.get_children():
+        child = self.other_storage_listbox.get_first_child()
+        while child:
+            next_child = child.get_next_sibling()
             self.other_storage_listbox.remove(child)
+            child = next_child
 
         if not self.current_domain:
             return
@@ -225,16 +279,13 @@ class SiteSettingsDialog(Adw.PreferencesWindow):
         # Query all relevant data types for this origin
         types_to_query = WebKit.WebsiteDataTypes.LOCAL_STORAGE | \
                          WebKit.WebsiteDataTypes.INDEXEDDB_DATABASES | \
-                         WebKit.WebsiteDataTypes.WEBSQL_DATABASES | \
-                         WebKit.WebsiteDataTypes.OFFLINE_WEB_APPLICATION_CACHE | \
-                         WebKit.WebsiteDataTypes.FILE_SYSTEM_DATA | \
-                         WebKit.WebsiteDataTypes.PLUGINS_DATA | \
-                         WebKit.WebsiteDataTypes.WEB_RTC_DATA
+                         WebKit.WebsiteDataTypes.OFFLINE_APPLICATION_CACHE | \
+                         WebKit.WebsiteDataTypes.DEVICE_ID_HASH_SALT | \
+                         WebKit.WebsiteDataTypes.HSTS_CACHE
         
         # It's an async call
-        self.website_data_manager.get_data_for_origins(
+        self.website_data_manager.fetch(
             types_to_query,
-            Gtk.StringList.new([origin.to_string()]), # Needs a list of string origins
             None,
             self._on_get_other_site_data_ready
         )
@@ -242,8 +293,8 @@ class SiteSettingsDialog(Adw.PreferencesWindow):
 
     def _on_get_other_site_data_ready(self, source_object, res):
         try:
-            # get_data_for_origins_finish returns a GLib.List of WebKit.WebsiteData objects
-            data_list = self.website_data_manager.get_data_for_origins_finish(res)
+            # fetch_finish returns a GLib.List of WebKit.WebsiteData objects
+            data_list = self.website_data_manager.fetch_finish(res)
             
             if not data_list:
                 no_data_row = Adw.ActionRow.new()
@@ -257,20 +308,15 @@ class SiteSettingsDialog(Adw.PreferencesWindow):
 
             for data_item in data_list:
                 # data_item is WebKit.WebsiteData, has get_types() and get_size()
-                if data_item.get_origin().get_host() == self.current_domain or \
-                   data_item.get_origin().get_host().endswith(f".{self.current_domain}"):
-                    
-                    types = data_item.get_types()
-                    total_size_bytes += data_item.get_size()
+                types = data_item.get_types()
+                total_size_bytes += data_item.get_size(types)
 
-                    # Convert WebKit.WebsiteDataTypes flags to human-readable strings
-                    if types & WebKit.WebsiteDataTypes.LOCAL_STORAGE: found_types.add("Local Storage")
-                    if types & WebKit.WebsiteDataTypes.INDEXEDDB_DATABASES: found_types.add("IndexedDB")
-                    if types & WebKit.WebsiteDataTypes.WEBSQL_DATABASES: found_types.add("WebSQL")
-                    if types & WebKit.WebsiteDataTypes.OFFLINE_WEB_APPLICATION_CACHE: found_types.add("App Cache")
-                    if types & WebKit.WebsiteDataTypes.FILE_SYSTEM_DATA: found_types.add("File System")
-                    if types & WebKit.WebsiteDataTypes.PLUGINS_DATA: found_types.add("Plugins Data")
-                    if types & WebKit.WebsiteDataTypes.WEB_RTC_DATA: found_types.add("WebRTC Data")
+                # Convert WebKit.WebsiteDataTypes flags to human-readable strings
+                if types & WebKit.WebsiteDataTypes.LOCAL_STORAGE: found_types.add("Local Storage")
+                if types & WebKit.WebsiteDataTypes.INDEXEDDB_DATABASES: found_types.add("IndexedDB")
+                if types & WebKit.WebsiteDataTypes.OFFLINE_APPLICATION_CACHE: found_types.add("App Cache")
+                if types & WebKit.WebsiteDataTypes.DEVICE_ID_HASH_SALT: found_types.add("Device ID Hash")
+                if types & WebKit.WebsiteDataTypes.HSTS_CACHE: found_types.add("HSTS Cache")
 
             if found_types:
                 types_str = ", ".join(sorted(list(found_types)))

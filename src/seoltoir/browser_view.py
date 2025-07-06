@@ -13,6 +13,7 @@ from .debug import debug_print
 from .database import DatabaseManager
 from .adblock_parser import AdblockParser
 from .https_everywhere_rules import HttpsEverywhereRules
+from .opensearch_parser import OpenSearchParser
 
 class SeoltoirBrowserView(Gtk.Box):
     __gsignals__ = {
@@ -25,10 +26,13 @@ class SeoltoirBrowserView(Gtk.Box):
         "new-window-requested": (GObject.SignalFlags.RUN_FIRST, None, (WebKit.WebView,)),
         "blocked-count-changed": (GObject.SignalFlags.RUN_FIRST, None, (int,)),
         "show-notification": (GObject.SignalFlags.RUN_FIRST, None, (str,)),
+        "zoom-level-changed": (GObject.SignalFlags.RUN_FIRST, None, (float,)),
+        "opensearch-discovered": (GObject.SignalFlags.RUN_FIRST, None, (str, str)),
     }
 
     _adblock_parser_instance = None
     _https_everywhere_rules_instance = None
+    _opensearch_parser_instance = None
     _ad_block_filter_data = None
     _css_ad_block_scripts_by_domain = {}
 
@@ -46,6 +50,9 @@ class SeoltoirBrowserView(Gtk.Box):
         
         if cls._https_everywhere_rules_instance is None:
             cls._load_https_everywhere_rules(settings)
+        
+        if cls._opensearch_parser_instance is None:
+            cls._opensearch_parser_instance = OpenSearchParser()
         
     @classmethod
     def _get_domain_from_uri(cls, uri: str) -> str:
@@ -163,7 +170,7 @@ class SeoltoirBrowserView(Gtk.Box):
                 filter_bytes = GLib.Bytes.new(cls._ad_block_filter_data.encode('utf-8'))
                 # Try different method names for UserContentFilter creation
                 try:
-                content_filter = WebKit.UserContentFilter.new_from_bytes(filter_bytes, filter_name, None)
+                    content_filter = WebKit.UserContentFilter.new_from_bytes(filter_bytes, filter_name, None)
                 except AttributeError:
                     # Try alternative method name
                     try:
@@ -229,18 +236,20 @@ class SeoltoirBrowserView(Gtk.Box):
         if is_private:
             from gi.repository import GObject
             ephemeral_session = WebKit.NetworkSession.new_ephemeral()
-            self.webview = GObject.new(WebKit.WebView, network_session=ephemeral_session)
+            self.webview = GObject.new(WebKit.WebView, network_session=ephemeral_session, user_content_manager=self.user_content_manager)
             self.network_session = ephemeral_session
         else:
+            from gi.repository import GObject
             if hasattr(WebKit.WebView, 'new_with_context'):
-                self.webview = WebKit.WebView.new_with_context(self.context)
+                # Use GObject.new to pass user_content_manager during creation
+                self.webview = GObject.new(WebKit.WebView, web_context=self.context, user_content_manager=self.user_content_manager)
             else:
-        self.webview = WebKit.WebView.new()
+                self.webview = GObject.new(WebKit.WebView, user_content_manager=self.user_content_manager)
         self.webview.set_vexpand(True)
         self.webview.set_hexpand(True)
         self.append(self.webview)
 
-        #self._setup_signals_and_properties()
+        self._setup_signals_and_properties()
         self._configure_webkit_settings()
         self._setup_content_blocking()
 
@@ -260,11 +269,11 @@ class SeoltoirBrowserView(Gtk.Box):
 
         self.webview.connect("resource-load-started", self._on_resource_load_started)
         self.webview.connect("load-changed", self._on_load_changed)
+        self.webview.connect("notify::title", self._on_title_changed)
 
         self.settings.connect("changed::default-font-family", self._on_font_setting_changed)
         self.settings.connect("changed::default-font-size", self._on_font_setting_changed)
 
-        self.settings = Gio.Settings.new(Gio.Application.get_default().get_application_id())
         enable_ad_blocking = self.settings.get_boolean("enable-ad-blocking")
         SeoltoirBrowserView.apply_ad_block_filter(self.user_content_manager, enable_ad_blocking)
 
@@ -473,30 +482,41 @@ class SeoltoirBrowserView(Gtk.Box):
                 self.webview.add_https_everywhere_rule(rule)
 
     def _setup_signals_and_properties(self):
+        debug_print("[DEBUG] === _setup_signals_and_properties STARTING ===")
         # --- CHANGED: Connect to the new signals for the WebView ---
         self.webview.connect("load-changed", self._on_load_changed)
         debug_print("[DEBUG] Connected load-changed signal to _on_load_changed")
         self.webview.connect("resource-load-started", self._on_resource_load_started)
+        self.webview.connect("context-menu", self._on_context_menu)
+        debug_print("[DEBUG] Connected context-menu signal to _on_context_menu")
 
         # --- Adblock Plus signals ---
-        if self._adblock_parser_instance:
-            self._adblock_parser_instance.connect("blocked", self._on_adblock_blocked)
+        # Note: AdblockParser is not a GObject, so no signals to connect
 
         # --- Inject favicon extractor ---
+        debug_print("[DEBUG] About to inject favicon extractor...")
         self._inject_favicon_extractor()
+        debug_print("[DEBUG] === _setup_signals_and_properties COMPLETE ===")
 
     def _inject_favicon_extractor(self):
         """Inject JavaScript to extract favicon URLs from the page."""
+        debug_print("[DEBUG] === _inject_favicon_extractor STARTING ===")
         favicon_script = """
         (function() {
+            console.log('[FAVICON-JS] Script starting...');
             function findFavicon() {
+                console.log('[FAVICON-JS] Looking for favicon links...');
                 const links = document.querySelectorAll('link[rel*="icon"]');
                 const favicons = [];
+                
+                console.log('[FAVICON-JS] Found ' + links.length + ' icon links');
                 
                 for (let link of links) {
                     const href = link.href;
                     const rel = link.rel;
                     const sizes = link.sizes ? link.sizes.value : '';
+                    
+                    console.log('[FAVICON-JS] Found link: ' + href + ' (rel: ' + rel + ')');
                     
                     if (href) {
                         favicons.push({
@@ -510,6 +530,7 @@ class SeoltoirBrowserView(Gtk.Box):
                 // If no favicon links found, try to construct default favicon URL
                 if (favicons.length === 0) {
                     const defaultFavicon = window.location.origin + '/favicon.ico';
+                    console.log('[FAVICON-JS] No links found, trying default: ' + defaultFavicon);
                     favicons.push({
                         url: defaultFavicon,
                         rel: 'icon',
@@ -522,26 +543,62 @@ class SeoltoirBrowserView(Gtk.Box):
             
             const favicons = findFavicon();
             if (favicons.length > 0) {
+                console.log('[FAVICON-JS] Posting message with URL: ' + favicons[0].url);
                 // Emit the favicon URL to the Python side
-                window.webkit.messageHandlers.faviconHandler.postMessage(favicons[0].url);
+                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.faviconHandler) {
+                    window.webkit.messageHandlers.faviconHandler.postMessage(favicons[0].url);
+                    console.log('[FAVICON-JS] Message posted successfully');
+                } else {
+                    console.log('[FAVICON-JS] ERROR: faviconHandler not available!');
+                }
+            } else {
+                console.log('[FAVICON-JS] No favicons found');
             }
         })();
         """
         
         # Create a user script to inject the favicon extractor
-        script = WebKit.UserScript.new(
-            favicon_script,
-            WebKit.UserContentInjectedFrames.ALL_FRAMES,
-            WebKit.UserScriptInjectionTime.DOCUMENT_END,
-            None,
-            None
-        )
+        debug_print("[DEBUG] Creating UserScript...")
+        try:
+            script = WebKit.UserScript.new(
+                favicon_script,
+                WebKit.UserContentInjectedFrames.ALL_FRAMES,
+                WebKit.UserScriptInjectionTime.END,
+                None,
+                None
+            )
+            debug_print("[DEBUG] UserScript created successfully")
+        except Exception as e:
+            debug_print(f"[DEBUG] ERROR creating UserScript: {e}")
+            return
         
         # Add the script to the user content manager
-        self.user_content_manager.add_script(script, "favicon-extractor")
+        debug_print("[DEBUG] Adding script to user content manager...")
+        try:
+            self.user_content_manager.add_script(script)
+            debug_print("[DEBUG] Script added successfully")
+        except Exception as e:
+            debug_print(f"[DEBUG] ERROR adding script: {e}")
+            return
         
         # Register a message handler to receive the favicon URL
-        self.user_content_manager.register_script_message_handler("faviconHandler", self._on_favicon_message_received)
+        debug_print("[DEBUG] Registering message handler...")
+        try:
+            self.user_content_manager.register_script_message_handler("faviconHandler")
+            debug_print("[DEBUG] Message handler registered")
+        except Exception as e:
+            debug_print(f"[DEBUG] ERROR registering handler: {e}")
+            return
+            
+        debug_print("[DEBUG] Connecting to signal...")
+        try:
+            self.user_content_manager.connect("script-message-received::faviconHandler", self._on_favicon_message_received)
+            debug_print("[DEBUG] Signal connected successfully")
+        except Exception as e:
+            debug_print(f"[DEBUG] ERROR connecting signal: {e}")
+            return
+            
+        debug_print("[DEBUG] === _inject_favicon_extractor COMPLETE ===")
 
     def _on_adblock_blocked(self, parser, uri, options):
         self.blocked_count_for_page += 1
@@ -549,8 +606,9 @@ class SeoltoirBrowserView(Gtk.Box):
         self.emit("show-notification", f"Blocked by Adblock Plus: {os.path.basename(urllib.parse.urlparse(uri).path or uri)}")
 
     def _on_load_changed(self, webview, load_event):
-        debug_print(f"[DEBUG] _on_load_changed called with event: {load_event}")
+        debug_print(f"[DEBUG] === _on_load_changed called with event: {load_event} ===")
         if load_event == WebKit.LoadEvent.COMMITTED:
+            debug_print("[DEBUG] Load event: COMMITTED")
             # Reset blocked count on new page load
             self.blocked_count_for_page = 0
 
@@ -563,21 +621,39 @@ class SeoltoirBrowserView(Gtk.Box):
                     self.webview.add_https_everywhere_rule(rule)
         
         elif load_event == WebKit.LoadEvent.FINISHED:
+            debug_print("[DEBUG] Load event: FINISHED")
             # Page has finished loading, emit signals for title, URI, and favicon
             uri = self.webview.get_uri()
             title = self.webview.get_title()
             favicon = self.webview.get_favicon()
             debug_print(f"[DEBUG] FINISHED: uri={uri}, title={title}, favicon={favicon} (type: {type(favicon)})")
+            debug_print("[DEBUG] Emitting uri-changed signal...")
             self.emit("uri-changed", uri)
+            debug_print("[DEBUG] Emitting title-changed signal...")
             self.emit("title-changed", title)
             if favicon:
+                debug_print(f"[DEBUG] *** EMITTING WEBKIT FAVICON: {favicon} ***")
                 self.emit("favicon-changed", favicon)
             else:
-                debug_print("[DEBUG] No favicon available after page load.")
+                debug_print("[DEBUG] No WebKit favicon available, trying JavaScript extraction.")
                 # Try to fetch favicon from domain root as fallback
                 self._fetch_favicon_fallback(uri)
+            debug_print("[DEBUG] Emitting navigation signals...")
             self.emit("can-go-back-changed", self.webview.can_go_back())
             self.emit("can-go-forward-changed", self.webview.can_go_forward())
+            
+            # Load saved zoom level for this domain
+            self.load_saved_zoom_level()
+            
+            # Detect OpenSearch descriptors on the page
+            self._detect_opensearch_descriptors()
+
+    def _on_title_changed(self, webview, pspec):
+        """Handle title changes in the webview."""
+        title = webview.get_title()
+        if title:
+            debug_print(f"[DEBUG] Title changed to: {title}")
+            self.emit("title-changed", title)
 
     def _on_ad_blocking_setting_changed(self, settings, key):
         enabled = settings.get_boolean(key)
@@ -611,10 +687,17 @@ class SeoltoirBrowserView(Gtk.Box):
     def _on_javascript_setting_changed(self, settings, key):
         self._configure_webkit_settings()
 
-    def _on_favicon_message_received(self, webview, message, data):
+    def _on_favicon_message_received(self, user_content_manager, message):
         """Handle the received favicon URL and fetch the favicon."""
-        favicon_url = data
-        debug_print(f"[DEBUG] Received favicon URL: {favicon_url}")
+        debug_print(f"[DEBUG] === _on_favicon_message_received CALLED ===")
+        debug_print(f"[DEBUG] user_content_manager: {user_content_manager}")
+        debug_print(f"[DEBUG] message: {message}")
+        try:
+            favicon_url = message.get_js_value().to_string()
+            debug_print(f"[DEBUG] *** FAVICON MESSAGE RECEIVED: {favicon_url} ***")
+        except Exception as e:
+            debug_print(f"[DEBUG] ERROR extracting favicon URL: {e}")
+            return
         
         # Fetch the favicon in a background thread
         def fetch_favicon():
@@ -643,13 +726,15 @@ class SeoltoirBrowserView(Gtk.Box):
                 image.save(png_buffer, format='PNG')
                 png_data = png_buffer.getvalue()
                 
-                # Convert the PNG data to a GIcon
+                # Convert to base64 and create BytesIcon
+                import base64
+                base64_data = base64.b64encode(png_data).decode('ascii')
                 icon_bytes = GLib.Bytes.new(png_data)
                 icon = Gio.BytesIcon.new(icon_bytes)
                 
                 # Emit the favicon signal on the main thread
                 GLib.idle_add(self.emit, "favicon-changed", icon)
-                debug_print(f"[DEBUG] Successfully fetched and converted favicon from {favicon_url}")
+                debug_print(f"[DEBUG] Successfully converted favicon to base64 from {favicon_url}")
                 
             except ImportError:
                 # PIL not available, try with raw data
@@ -658,21 +743,47 @@ class SeoltoirBrowserView(Gtk.Box):
                     response.raise_for_status()
                     
                     icon_data = response.content
-                    icon_bytes = GLib.Bytes.new(icon_data)
-                    icon = Gio.BytesIcon.new(icon_bytes)
-                    
-                    GLib.idle_add(self.emit, "favicon-changed", icon)
-                    debug_print(f"[DEBUG] Successfully fetched favicon from {favicon_url} (raw)")
+                    # Always convert to PNG for consistency
+                    try:
+                        from PIL import Image
+                        import io
+                        
+                        # Load the image and convert to PNG
+                        image = Image.open(io.BytesIO(icon_data))
+                        if image.mode != 'RGBA':
+                            image = image.convert('RGBA')
+                        
+                        # Resize to 32x32 for consistency
+                        if image.size != (32, 32):
+                            image = image.resize((32, 32), Image.Resampling.LANCZOS)
+                        
+                        # Save as PNG
+                        png_buffer = io.BytesIO()
+                        image.save(png_buffer, format='PNG')
+                        png_data = png_buffer.getvalue()
+                        
+                        icon_bytes = GLib.Bytes.new(png_data)
+                        icon = Gio.BytesIcon.new(icon_bytes)
+                        
+                        GLib.idle_add(self.emit, "favicon-changed", icon)
+                        debug_print(f"[DEBUG] Successfully normalized favicon to PNG from {favicon_url}")
+                        
+                    except Exception as e:
+                        debug_print(f"[DEBUG] Failed to normalize favicon: {e}")
+                        # Fallback to raw data if PIL fails
+                        if len(icon_data) > 0 and icon_data.startswith(b'\x89PNG'):
+                            icon_bytes = GLib.Bytes.new(icon_data)
+                            icon = Gio.BytesIcon.new(icon_bytes)
+                            GLib.idle_add(self.emit, "favicon-changed", icon)
+                            debug_print(f"[DEBUG] Used raw PNG data for {favicon_url}")
+                        else:
+                            debug_print(f"[DEBUG] Cannot use raw data for {favicon_url}")
                     
                 except Exception as e:
                     debug_print(f"[DEBUG] Failed to fetch favicon from {favicon_url}: {e}")
-                    # Emit signal to revert to default icon
-                    GLib.idle_add(self.emit, "favicon-changed", None)
                     
             except Exception as e:
                 debug_print(f"[DEBUG] Failed to fetch/convert favicon from {favicon_url}: {e}")
-                # Emit signal to revert to default icon
-                GLib.idle_add(self.emit, "favicon-changed", None)
         
         # Start the favicon fetch in a background thread
         import threading
@@ -745,21 +856,47 @@ class SeoltoirBrowserView(Gtk.Box):
                         response.raise_for_status()
                         
                         icon_data = response.content
-                        icon_bytes = GLib.Bytes.new(icon_data)
-                        icon = Gio.BytesIcon.new(icon_bytes)
-                        
-                        GLib.idle_add(self.emit, "favicon-changed", icon)
-                        debug_print(f"[DEBUG] Successfully fetched favicon from {favicon_url} (raw)")
+                        # Always convert to PNG for consistency
+                        try:
+                            from PIL import Image
+                            import io
+                            
+                            # Load the image and convert to PNG
+                            image = Image.open(io.BytesIO(icon_data))
+                            if image.mode != 'RGBA':
+                                image = image.convert('RGBA')
+                            
+                            # Resize to 32x32 for consistency
+                            if image.size != (32, 32):
+                                image = image.resize((32, 32), Image.Resampling.LANCZOS)
+                            
+                            # Save as PNG
+                            png_buffer = io.BytesIO()
+                            image.save(png_buffer, format='PNG')
+                            png_data = png_buffer.getvalue()
+                            
+                            icon_bytes = GLib.Bytes.new(png_data)
+                            icon = Gio.BytesIcon.new(icon_bytes)
+                            
+                            GLib.idle_add(self.emit, "favicon-changed", icon)
+                            debug_print(f"[DEBUG] Successfully normalized fallback favicon to PNG from {favicon_url}")
+                            
+                        except Exception as e:
+                            debug_print(f"[DEBUG] Failed to normalize fallback favicon: {e}")
+                            # Fallback to raw data if PIL fails
+                            if len(icon_data) > 0 and icon_data.startswith(b'\x89PNG'):
+                                icon_bytes = GLib.Bytes.new(icon_data)
+                                icon = Gio.BytesIcon.new(icon_bytes)
+                                GLib.idle_add(self.emit, "favicon-changed", icon)
+                                debug_print(f"[DEBUG] Used raw PNG fallback data for {favicon_url}")
+                            else:
+                                debug_print(f"[DEBUG] Cannot use raw fallback data for {favicon_url}")
                         
                     except Exception as e:
                         debug_print(f"[DEBUG] Failed to fetch favicon from {favicon_url}: {e}")
-                        # Emit signal to revert to default icon
-                        GLib.idle_add(self.emit, "favicon-changed", None)
                         
                 except Exception as e:
                     debug_print(f"[DEBUG] Failed to fetch/convert favicon from {favicon_url}: {e}")
-                    # Emit signal to revert to default icon
-                    GLib.idle_add(self.emit, "favicon-changed", None)
             
             # Start the favicon fetch in a background thread
             import threading
@@ -767,5 +904,817 @@ class SeoltoirBrowserView(Gtk.Box):
             
         except Exception as e:
             debug_print(f"[DEBUG] Error in favicon fallback for {uri}: {e}")
-            # Emit signal to revert to default icon
-            GLib.idle_add(self.emit, "favicon-changed", None)
+
+
+    def _get_domain_from_url(self, url: str) -> str:
+        """Extract domain from URL for zoom level persistence."""
+        try:
+            parsed = urllib.parse.urlparse(url)
+            domain = parsed.netloc
+            if domain.startswith("www."):
+                domain = domain[4:]
+            return domain
+        except ValueError:
+            return ""
+
+    def get_zoom_level(self) -> float:
+        """Get the current zoom level."""
+        return self.webview.get_zoom_level()
+
+    def set_zoom_level(self, zoom_level: float, save_to_db: bool = True):
+        """Set the zoom level and optionally save to database."""
+        # Clamp zoom level to reasonable bounds
+        zoom_level = max(0.25, min(5.0, zoom_level))
+        
+        self.webview.set_zoom_level(zoom_level)
+        self.emit("zoom-level-changed", zoom_level)
+        
+        if save_to_db:
+            current_uri = self.get_uri()
+            if current_uri:
+                domain = self._get_domain_from_url(current_uri)
+                if domain:
+                    self.db_manager.set_zoom_level(domain, zoom_level)
+
+    def zoom_in(self):
+        """Zoom in by 25%."""
+        current_zoom = self.get_zoom_level()
+        new_zoom = current_zoom * 1.25
+        self.set_zoom_level(new_zoom)
+        self.emit("show-notification", f"Zoom: {int(new_zoom * 100)}%")
+
+    def zoom_out(self):
+        """Zoom out by 25%."""
+        current_zoom = self.get_zoom_level()
+        new_zoom = current_zoom / 1.25
+        self.set_zoom_level(new_zoom)
+        self.emit("show-notification", f"Zoom: {int(new_zoom * 100)}%")
+
+    def zoom_reset(self):
+        """Reset zoom to 100%."""
+        self.set_zoom_level(1.0)
+        self.emit("show-notification", "Zoom: 100%")
+
+    def load_saved_zoom_level(self):
+        """Load the saved zoom level for the current domain."""
+        current_uri = self.get_uri()
+        if current_uri:
+            domain = self._get_domain_from_url(current_uri)
+            if domain:
+                saved_zoom = self.db_manager.get_zoom_level(domain)
+                if saved_zoom != 1.0:  # Only set if different from default
+                    self.set_zoom_level(saved_zoom, save_to_db=False)
+
+    def print_page(self, print_selection_only=False):
+        """Print the current page with enhanced functionality."""
+        print_manager = SeoltoirPrintManager(self.webview, self.get_toplevel())
+        
+        if print_selection_only:
+            # Check if there's selected text first
+            self.webview.run_javascript("window.getSelection().toString();", None, self._on_check_selection_for_print, print_manager)
+        else:
+            print_manager.show_print_dialog()
+
+    def _on_check_selection_for_print(self, webview, result, print_manager):
+        """Check if there's text selection and proceed with print."""
+        try:
+            js_result = webview.run_javascript_finish(result)
+            if js_result:
+                selected_text = js_result.get_js_value().to_string()
+                if selected_text and selected_text.strip():
+                    print_manager.print_selection(selected_text)
+                else:
+                    self.emit("show-notification", "No text selected for printing")
+                    print_manager.show_print_dialog()  # Fall back to full page
+            else:
+                print_manager.show_print_dialog()
+        except Exception as e:
+            debug_print(f"[DEBUG] Error checking selection for print: {e}")
+            print_manager.show_print_dialog()  # Fall back to full page
+
+    def _on_context_menu(self, webview, context_menu, event, hit_test_result):
+        """Handle context menu events for web content."""
+        debug_print("[DEBUG] Context menu triggered")
+        
+        # Clear the default context menu
+        context_menu.remove_all()
+        
+        # Get context information from hit test result
+        context = hit_test_result.get_context()
+        
+        # Build custom context menu based on the element type
+        if context & WebKit.HitTestResultContext.LINK:
+            self._build_link_context_menu(context_menu, hit_test_result)
+        elif context & WebKit.HitTestResultContext.IMAGE:
+            self._build_image_context_menu(context_menu, hit_test_result)
+        elif context & WebKit.HitTestResultContext.MEDIA:
+            self._build_media_context_menu(context_menu, hit_test_result)
+        elif context & WebKit.HitTestResultContext.SELECTION:
+            self._build_text_selection_context_menu(context_menu, hit_test_result)
+        else:
+            self._build_default_context_menu(context_menu, hit_test_result)
+        
+        return False  # Allow the menu to be shown
+
+    def _build_link_context_menu(self, context_menu, hit_test_result):
+        """Build context menu for links."""
+        link_uri = hit_test_result.get_link_uri()
+        link_text = hit_test_result.get_link_title() or link_uri
+        
+        # Open Link
+        open_item = WebKit.ContextMenuItem.new_from_stock_action(WebKit.ContextMenuAction.OPEN_LINK)
+        context_menu.append(open_item)
+        
+        # Open Link in New Tab
+        new_tab_item = WebKit.ContextMenuItem.new_from_stock_action(WebKit.ContextMenuAction.OPEN_LINK_IN_NEW_WINDOW)
+        new_tab_item.set_label("Open Link in New Tab")
+        context_menu.append(new_tab_item)
+        
+        # Copy Link URL
+        copy_link_item = WebKit.ContextMenuItem.new_from_stock_action(WebKit.ContextMenuAction.COPY_LINK_TO_CLIPBOARD)
+        context_menu.append(copy_link_item)
+        
+        # Add separator
+        context_menu.append(WebKit.ContextMenuItem.new_separator())
+        
+        # Add standard page actions
+        self._add_standard_page_actions(context_menu)
+
+    def _build_image_context_menu(self, context_menu, hit_test_result):
+        """Build context menu for images."""
+        image_uri = hit_test_result.get_image_uri()
+        
+        # Open Image in New Tab
+        open_image_item = WebKit.ContextMenuItem.new_from_stock_action(WebKit.ContextMenuAction.OPEN_IMAGE_IN_NEW_WINDOW)
+        open_image_item.set_label("Open Image in New Tab")
+        context_menu.append(open_image_item)
+        
+        # Save Image
+        save_image_item = WebKit.ContextMenuItem.new_from_stock_action(WebKit.ContextMenuAction.DOWNLOAD_IMAGE_TO_DISK)
+        context_menu.append(save_image_item)
+        
+        # Copy Image
+        copy_image_item = WebKit.ContextMenuItem.new_from_stock_action(WebKit.ContextMenuAction.COPY_IMAGE_TO_CLIPBOARD)
+        context_menu.append(copy_image_item)
+        
+        # Copy Image URL
+        copy_image_url_item = WebKit.ContextMenuItem.new_from_stock_action(WebKit.ContextMenuAction.COPY_IMAGE_URL_TO_CLIPBOARD)
+        context_menu.append(copy_image_url_item)
+        
+        # Add separator
+        context_menu.append(WebKit.ContextMenuItem.new_separator())
+        
+        # Add standard page actions
+        self._add_standard_page_actions(context_menu)
+
+    def _build_media_context_menu(self, context_menu, hit_test_result):
+        """Build context menu for audio/video elements."""
+        media_uri = hit_test_result.get_media_uri()
+        
+        # Play/Pause (context dependent)
+        play_pause_item = WebKit.ContextMenuItem.new_from_stock_action(WebKit.ContextMenuAction.MEDIA_PLAY)
+        context_menu.append(play_pause_item)
+        
+        # Mute/Unmute
+        mute_item = WebKit.ContextMenuItem.new_from_stock_action(WebKit.ContextMenuAction.MEDIA_MUTE)
+        context_menu.append(mute_item)
+        
+        # Save Media
+        save_media_item = WebKit.ContextMenuItem.new_from_stock_action(WebKit.ContextMenuAction.DOWNLOAD_MEDIA_TO_DISK)
+        context_menu.append(save_media_item)
+        
+        # Copy Media URL
+        copy_media_url_item = WebKit.ContextMenuItem.new_from_stock_action(WebKit.ContextMenuAction.COPY_MEDIA_LINK_TO_CLIPBOARD)
+        context_menu.append(copy_media_url_item)
+        
+        # Add separator
+        context_menu.append(WebKit.ContextMenuItem.new_separator())
+        
+        # Add standard page actions
+        self._add_standard_page_actions(context_menu)
+
+    def _build_text_selection_context_menu(self, context_menu, hit_test_result):
+        """Build context menu for text selection."""
+        # Copy Selection
+        copy_item = WebKit.ContextMenuItem.new_from_stock_action(WebKit.ContextMenuAction.COPY)
+        context_menu.append(copy_item)
+        
+        # Search Web for Selection - using custom action
+        search_item = WebKit.ContextMenuItem.new("Search for Selection", WebKit.ContextMenuAction.CUSTOM)
+        search_item.connect("activate", self._on_search_selection_activate)
+        context_menu.append(search_item)
+        
+        # Print Selection
+        print_selection_item = WebKit.ContextMenuItem.new("Print Selection", WebKit.ContextMenuAction.CUSTOM)
+        print_selection_item.connect("activate", self._on_print_selection_activate)
+        context_menu.append(print_selection_item)
+        
+        # Add separator
+        context_menu.append(WebKit.ContextMenuItem.new_separator())
+        
+        # Add standard page actions
+        self._add_standard_page_actions(context_menu)
+
+    def _build_default_context_menu(self, context_menu, hit_test_result):
+        """Build default context menu for regular page areas."""
+        self._add_standard_page_actions(context_menu)
+
+    def _add_standard_page_actions(self, context_menu):
+        """Add standard navigation actions to any context menu."""
+        # Back
+        if self.webview.can_go_back():
+            back_item = WebKit.ContextMenuItem.new_from_stock_action(WebKit.ContextMenuAction.GO_BACK)
+            context_menu.append(back_item)
+        
+        # Forward
+        if self.webview.can_go_forward():
+            forward_item = WebKit.ContextMenuItem.new_from_stock_action(WebKit.ContextMenuAction.GO_FORWARD)
+            context_menu.append(forward_item)
+        
+        # Reload
+        reload_item = WebKit.ContextMenuItem.new_from_stock_action(WebKit.ContextMenuAction.RELOAD)
+        context_menu.append(reload_item)
+        
+        # Add separator if we added navigation items
+        if self.webview.can_go_back() or self.webview.can_go_forward():
+            context_menu.append(WebKit.ContextMenuItem.new_separator())
+        
+        # View Page Source
+        view_source_item = WebKit.ContextMenuItem.new("View Page Source", WebKit.ContextMenuAction.CUSTOM)
+        view_source_item.connect("activate", self._on_view_source_activate)
+        context_menu.append(view_source_item)
+        
+        # Inspect Element (if developer mode is enabled)
+        if self.webview.get_settings().get_enable_developer_extras():
+            inspect_item = WebKit.ContextMenuItem.new_from_stock_action(WebKit.ContextMenuAction.INSPECT_ELEMENT)
+            context_menu.append(inspect_item)
+
+    def _on_search_selection_activate(self, menu_item):
+        """Handle search for selected text."""
+        # Get the selected text using JavaScript
+        self.webview.run_javascript("window.getSelection().toString();", None, self._on_get_selection_result, None)
+
+    def _on_get_selection_result(self, webview, result, user_data):
+        """Handle the result of getting selected text."""
+        try:
+            js_result = webview.run_javascript_finish(result)
+            if js_result:
+                selected_text = js_result.get_js_value().to_string()
+                if selected_text and selected_text.strip():
+                    # Create search URL using the default search engine
+                    app = Gio.Application.get_default()
+                    search_url = app._get_selected_search_engine_url(selected_text.strip())
+                    # Signal to open in new tab
+                    self.emit("show-notification", f"Searching for: {selected_text[:50]}...")
+                    debug_print(f"[DEBUG] Search selection: {selected_text} -> {search_url}")
+                    # This would need to be handled by the window to open a new tab
+                else:
+                    self.emit("show-notification", "No text selected")
+        except Exception as e:
+            debug_print(f"[DEBUG] Error getting selection: {e}")
+            self.emit("show-notification", "Error getting selected text")
+
+    def _on_view_source_activate(self, menu_item):
+        """Handle view page source action."""
+        current_uri = self.get_uri()
+        if current_uri:
+            # Get the page source using JavaScript and display it
+            self.webview.run_javascript("document.documentElement.outerHTML;", None, self._on_get_source_result, current_uri)
+
+    def _on_get_source_result(self, webview, result, user_data):
+        """Handle the result of getting page source."""
+        try:
+            js_result = webview.run_javascript_finish(result)
+            if js_result:
+                page_source = js_result.get_js_value().to_string()
+                original_uri = user_data
+                
+                # Create a data URI with the source code
+                import base64
+                import urllib.parse
+                
+                # Create HTML wrapper for the source code
+                wrapped_source = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>Source: {original_uri}</title>
+    <style>
+        body {{ font-family: monospace; white-space: pre-wrap; margin: 20px; }}
+        .source {{ background: #f5f5f5; padding: 20px; border-radius: 5px; }}
+    </style>
+</head>
+<body>
+    <h2>Page Source: {original_uri}</h2>
+    <div class="source">{page_source.replace('<', '&lt;').replace('>', '&gt;')}</div>
+</body>
+</html>"""
+                
+                # Convert to data URI
+                encoded_source = base64.b64encode(wrapped_source.encode('utf-8')).decode('ascii')
+                data_uri = f"data:text/html;base64,{encoded_source}"
+                
+                # This would signal to open in a new tab - for now just show notification
+                debug_print(f"[DEBUG] View source requested for: {original_uri}")
+                self.emit("show-notification", "View source functionality implemented")
+        except Exception as e:
+            debug_print(f"[DEBUG] Error getting page source: {e}")
+            self.emit("show-notification", "Error getting page source")
+
+    def _on_print_selection_activate(self, menu_item):
+        """Handle print selection from context menu."""
+        self.print_page(print_selection_only=True)
+
+    def _detect_opensearch_descriptors(self):
+        """Detect OpenSearch descriptors on the current page."""
+        if not self._opensearch_parser_instance:
+            return
+        
+        # Check if webview is properly initialized
+        if not self.webview or not hasattr(self.webview, 'run_javascript'):
+            debug_print("[DEBUG] WebView not ready for JavaScript execution")
+            return
+        
+        # JavaScript to find OpenSearch descriptors
+        javascript_code = """
+        (function() {
+            var links = document.getElementsByTagName('link');
+            var openSearchLinks = [];
+            
+            for (var i = 0; i < links.length; i++) {
+                var link = links[i];
+                var rel = link.getAttribute('rel');
+                var type = link.getAttribute('type');
+                var href = link.getAttribute('href');
+                
+                if (rel && type && href) {
+                    if (rel.toLowerCase() === 'search' && 
+                        type.toLowerCase() === 'application/opensearchdescription+xml') {
+                        
+                        // Convert relative URLs to absolute
+                        var absoluteHref = href;
+                        if (!href.startsWith('http://') && !href.startsWith('https://')) {
+                            absoluteHref = new URL(href, window.location.href).href;
+                        }
+                        
+                        openSearchLinks.push({
+                            title: link.getAttribute('title') || document.title || 'Unknown',
+                            href: absoluteHref
+                        });
+                    }
+                }
+            }
+            
+            return openSearchLinks;
+        })();
+        """
+        
+        # Execute JavaScript and handle results
+        self.webview.run_javascript(javascript_code, None, self._on_opensearch_discovery_complete, None)
+    
+    def _on_opensearch_discovery_complete(self, webview, result, user_data):
+        """Handle OpenSearch discovery results."""
+        try:
+            js_result = webview.run_javascript_finish(result)
+            if js_result:
+                value = js_result.get_js_value()
+                if value and value.is_array():
+                    # Process each OpenSearch descriptor found
+                    for i in range(value.get_array_length()):
+                        item = value.get_array_element(i)
+                        if item and item.is_object():
+                            title = item.get_property('title').to_string() if item.has_property('title') else 'Unknown'
+                            href = item.get_property('href').to_string() if item.has_property('href') else ''
+                            
+                            if href:
+                                debug_print(f"[DEBUG] Found OpenSearch descriptor: {title} at {href}")
+                                # Emit signal with the title and URL
+                                self.emit("opensearch-discovered", title, href)
+        except Exception as e:
+            debug_print(f"[DEBUG] Error processing OpenSearch discovery: {e}")
+
+
+class SeoltoirPrintManager:
+    """Comprehensive print management for Seoltoir browser."""
+    
+    def __init__(self, webview, parent_window):
+        self.webview = webview
+        self.parent_window = parent_window
+        self.page_setup = None
+        self.print_settings = None
+        self._init_print_settings()
+    
+    def _init_print_settings(self):
+        """Initialize default print settings."""
+        self.page_setup = Gtk.PageSetup.new()
+        self.print_settings = Gtk.PrintSettings.new()
+        
+        # Set default settings
+        self.print_settings.set_orientation(Gtk.PageOrientation.PORTRAIT)
+        self.print_settings.set_paper_size(Gtk.PaperSize.new(None))  # Default paper size
+        self.print_settings.set_scale(100.0)  # 100% scale
+        
+        # Set default margins (in points - 72 points = 1 inch)
+        self.page_setup.set_top_margin(72.0, Gtk.Unit.POINTS)     # 1 inch
+        self.page_setup.set_bottom_margin(72.0, Gtk.Unit.POINTS)  # 1 inch  
+        self.page_setup.set_left_margin(72.0, Gtk.Unit.POINTS)    # 1 inch
+        self.page_setup.set_right_margin(72.0, Gtk.Unit.POINTS)   # 1 inch
+    
+    def show_print_dialog(self):
+        """Show the main print dialog with preview."""
+        print_operation = Gtk.PrintOperation.new()
+        
+        # Set up print operation properties
+        print_operation.set_print_settings(self.print_settings)
+        print_operation.set_default_page_setup(self.page_setup)
+        print_operation.set_use_full_page(False)
+        print_operation.set_unit(Gtk.Unit.POINTS)
+        print_operation.set_embed_page_setup(True)
+        print_operation.set_show_progress(True)
+        
+        # Set job name
+        current_uri = self.webview.get_uri()
+        if current_uri:
+            title = self.webview.get_title() or current_uri
+            print_operation.set_job_name(f"Seoltoir - {title}")
+        else:
+            print_operation.set_job_name("Seoltoir - Web Page")
+        
+        # Connect signals
+        print_operation.connect("begin-print", self._on_begin_print)
+        print_operation.connect("draw-page", self._on_draw_page)
+        print_operation.connect("status-changed", self._on_print_status_changed)
+        print_operation.connect("done", self._on_print_done)
+        
+        # Inject print CSS before printing
+        self._inject_print_css()
+        
+        try:
+            result = print_operation.run(Gtk.PrintOperationAction.PRINT_DIALOG, self.parent_window)
+            if result == Gtk.PrintOperationResult.ERROR:
+                debug_print("[DEBUG] Print operation failed")
+        except Exception as e:
+            debug_print(f"[DEBUG] Print operation error: {e}")
+    
+    def show_page_setup_dialog(self):
+        """Show page setup configuration dialog."""
+        new_page_setup = Gtk.print_run_page_setup_dialog(
+            self.parent_window, 
+            self.page_setup, 
+            self.print_settings
+        )
+        if new_page_setup:
+            self.page_setup = new_page_setup
+            debug_print("[DEBUG] Page setup updated")
+    
+    def print_to_pdf(self, file_path=None):
+        """Export the current page to PDF."""
+        if not file_path:
+            dialog = Gtk.FileChooserNative.new(
+                "Export to PDF",
+                self.parent_window,
+                Gtk.FileChooserAction.SAVE,
+                "_Save",
+                "_Cancel"
+            )
+            
+            # Set up PDF filter
+            filter_pdf = Gtk.FileFilter.new()
+            filter_pdf.set_name("PDF Files")
+            filter_pdf.add_mime_type("application/pdf")
+            filter_pdf.add_pattern("*.pdf")
+            dialog.add_filter(filter_pdf)
+            
+            # Set default filename
+            current_uri = self.webview.get_uri()
+            if current_uri:
+                title = self.webview.get_title() or "webpage"
+                # Clean title for filename
+                import re
+                clean_title = re.sub(r'[^\w\s-]', '', title).strip()[:50]
+                dialog.set_current_name(f"{clean_title}.pdf")
+            else:
+                dialog.set_current_name("webpage.pdf")
+            
+            response = dialog.run()
+            if response == Gtk.ResponseType.ACCEPT:
+                file_path = dialog.get_filename()
+                dialog.destroy()
+            else:
+                dialog.destroy()
+                return
+        
+        if file_path:
+            # Set up print operation for PDF export
+            print_operation = Gtk.PrintOperation.new()
+            print_operation.set_print_settings(self.print_settings)
+            print_operation.set_default_page_setup(self.page_setup)
+            print_operation.set_export_filename(file_path)
+            
+            # Set job name
+            print_operation.set_job_name("Seoltoir PDF Export")
+            
+            # Connect signals
+            print_operation.connect("begin-print", self._on_begin_print)
+            print_operation.connect("draw-page", self._on_draw_page)
+            
+            # Inject print CSS
+            self._inject_print_css()
+            
+            try:
+                result = print_operation.run(Gtk.PrintOperationAction.EXPORT, self.parent_window)
+                if result == Gtk.PrintOperationResult.APPLY:
+                    debug_print(f"[DEBUG] PDF exported successfully to {file_path}")
+                else:
+                    debug_print(f"[DEBUG] PDF export failed")
+            except Exception as e:
+                debug_print(f"[DEBUG] PDF export error: {e}")
+    
+    def print_selection(self, selected_text):
+        """Print only the selected text."""
+        # Create a temporary HTML document with just the selected text
+        selection_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Selected Text</title>
+            <style>
+                @media print {{
+                    body {{ font-family: serif; font-size: 12pt; line-height: 1.4; }}
+                    .selection {{ margin: 20px; }}
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="selection">
+                <h3>Selected Text</h3>
+                <p>{selected_text.replace('<', '&lt;').replace('>', '&gt;').replace('\n', '<br>')}</p>
+            </div>
+        </body>
+        </html>
+        """
+        
+        # Store original content and load selection
+        self._original_content = self.webview.get_uri()
+        
+        # Create data URI for selection
+        import base64
+        encoded_html = base64.b64encode(selection_html.encode('utf-8')).decode('ascii')
+        data_uri = f"data:text/html;base64,{encoded_html}"
+        
+        # Load selection content temporarily
+        self.webview.load_uri(data_uri)
+        
+        # Wait a moment for content to load, then print
+        GLib.timeout_add(500, self._print_selection_after_load)
+    
+    def _print_selection_after_load(self):
+        """Print selection after content loads."""
+        self.show_print_dialog()
+        
+        # Restore original content after printing
+        if hasattr(self, '_original_content') and self._original_content:
+            GLib.timeout_add(1000, lambda: self.webview.load_uri(self._original_content))
+        
+        return False  # Don't repeat timeout
+    
+    def _inject_print_css(self):
+        """Inject custom CSS for print media."""
+        # Get current page info for headers/footers
+        current_uri = self.webview.get_uri() or ""
+        page_title = self.webview.get_title() or "Web Page"
+        
+        print_css = f"""
+        @media print {{
+            /* Page setup with headers and footers */
+            @page {{
+                margin: 1in 1in 1.2in 1in;
+                
+                @top-left {{
+                    content: "Seoltoir Browser";
+                    font-size: 10pt;
+                    color: #666;
+                }}
+                
+                @top-center {{
+                    content: "{page_title[:50]}";
+                    font-size: 10pt;
+                    font-weight: bold;
+                    color: #000;
+                }}
+                
+                @top-right {{
+                    content: "Page " counter(page);
+                    font-size: 10pt;
+                    color: #666;
+                }}
+                
+                @bottom-left {{
+                    content: "{current_uri[:60]}";
+                    font-size: 9pt;
+                    color: #999;
+                }}
+                
+                @bottom-center {{
+                    content: "";
+                }}
+                
+                @bottom-right {{
+                    content: "Printed on " date();
+                    font-size: 9pt;
+                    color: #999;
+                }}
+            }}
+            
+            /* Hide navigation and UI elements */
+            nav, .navigation, .nav, .menu, .sidebar, .ads, .advertisement,
+            .social-share, .comments, .related-posts, header.site-header,
+            footer.site-footer, .site-footer, .header, .footer,
+            .print-hidden, [class*="ad-"], [id*="ad-"], [class*="social"],
+            .popup, .modal, .overlay, .fixed-header, .sticky-header {{
+                display: none !important;
+            }}
+            
+            /* Optimize content for print */
+            body {{
+                font-size: 12pt !important;
+                line-height: 1.4 !important;
+                color: #000 !important;
+                background: #fff !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }}
+            
+            /* Ensure content fits on page */
+            .content, .main-content, .article, .post, .entry-content {{
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 10pt !important;
+            }}
+            
+            /* Style headings for print */
+            h1, h2, h3, h4, h5, h6 {{
+                color: #000 !important;
+                page-break-after: avoid !important;
+                margin-top: 12pt !important;
+                margin-bottom: 6pt !important;
+            }}
+            
+            h1 {{
+                font-size: 18pt !important;
+                border-bottom: 2pt solid #000 !important;
+                padding-bottom: 3pt !important;
+            }}
+            
+            h2 {{
+                font-size: 16pt !important;
+                border-bottom: 1pt solid #666 !important;
+                padding-bottom: 2pt !important;
+            }}
+            
+            /* Handle images */
+            img {{
+                max-width: 100% !important;
+                height: auto !important;
+                page-break-inside: avoid !important;
+                border: 1px solid #ddd !important;
+                margin: 5pt 0 !important;
+            }}
+            
+            /* Handle links */
+            a {{
+                color: #000 !important;
+                text-decoration: underline !important;
+            }}
+            
+            /* Add URL after links */
+            a[href]:after {{
+                content: " (" attr(href) ")";
+                font-size: 9pt;
+                color: #666;
+                font-weight: normal;
+            }}
+            
+            /* Page breaks */
+            .page-break {{
+                page-break-before: always !important;
+            }}
+            
+            /* Avoid page breaks inside elements */
+            .avoid-page-break {{
+                page-break-inside: avoid !important;
+            }}
+            
+            /* Tables */
+            table {{
+                border-collapse: collapse !important;
+                width: 100% !important;
+                margin: 10pt 0 !important;
+                page-break-inside: avoid !important;
+            }}
+            
+            th, td {{
+                border: 1px solid #000 !important;
+                padding: 4pt !important;
+                font-size: 10pt !important;
+                text-align: left !important;
+            }}
+            
+            th {{
+                background: #f0f0f0 !important;
+                font-weight: bold !important;
+            }}
+            
+            /* Code blocks */
+            pre, code {{
+                font-family: "Courier New", monospace !important;
+                font-size: 10pt !important;
+                background: #f8f8f8 !important;
+                border: 1px solid #ccc !important;
+                padding: 4pt !important;
+                page-break-inside: avoid !important;
+                overflow: hidden !important;
+                word-wrap: break-word !important;
+            }}
+            
+            /* Lists */
+            ul, ol {{
+                margin: 6pt 0 !important;
+                padding-left: 20pt !important;
+            }}
+            
+            li {{
+                margin: 2pt 0 !important;
+            }}
+            
+            /* Blockquotes */
+            blockquote {{
+                margin: 10pt 20pt !important;
+                padding: 5pt 10pt !important;
+                border-left: 3pt solid #ccc !important;
+                background: #f9f9f9 !important;
+                font-style: italic !important;
+            }}
+            
+            /* Print-specific elements */
+            .print-only {{
+                display: block !important;
+            }}
+            
+            .screen-only {{
+                display: none !important;
+            }}
+            
+            /* Page numbering */
+            .page-number:after {{
+                content: counter(page);
+            }}
+            
+            /* Ensure text is readable */
+            * {{
+                -webkit-print-color-adjust: exact !important;
+                color-adjust: exact !important;
+            }}
+        }}
+        """
+        
+        # Create and inject the print CSS
+        css_script = f"""
+        var printStyle = document.getElementById('seoltoir-print-css');
+        if (printStyle) printStyle.remove();
+        
+        var style = document.createElement('style');
+        style.id = 'seoltoir-print-css';
+        style.innerHTML = `{print_css}`;
+        document.head.appendChild(style);
+        """
+        
+        self.webview.run_javascript(css_script, None, None, None)
+    
+    def _on_begin_print(self, operation, context):
+        """Called when print operation begins."""
+        # Set number of pages - for web content, we typically have 1 page
+        # WebKit will handle pagination internally
+        operation.set_n_pages(1)
+        debug_print("[DEBUG] Print operation began")
+    
+    def _on_draw_page(self, operation, context, page_num):
+        """Called to draw each page."""
+        # WebKit handles the actual drawing through its print operation
+        # This is mostly for compatibility with GTK print framework
+        debug_print(f"[DEBUG] Drawing page {page_num}")
+    
+    def _on_print_status_changed(self, operation):
+        """Called when print status changes."""
+        status = operation.get_status()
+        debug_print(f"[DEBUG] Print status: {status}")
+    
+    def _on_print_done(self, operation, result):
+        """Called when print operation is complete."""
+        if result == Gtk.PrintOperationResult.APPLY:
+            debug_print("[DEBUG] Print completed successfully")
+        elif result == Gtk.PrintOperationResult.CANCEL:
+            debug_print("[DEBUG] Print cancelled")
+        elif result == Gtk.PrintOperationResult.ERROR:
+            debug_print("[DEBUG] Print failed with error")
+        else:
+            debug_print(f"[DEBUG] Print completed with result: {result}")

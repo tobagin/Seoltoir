@@ -103,10 +103,10 @@ if __name__ == '__main__':
     # A tiny mock ruleset XML (from a real HTTPS Everywhere rule)
     test_xml = """
     <ruleset name="Example.com (partial)">
-      <rule from="^http://(www\.)?example\.com/" to="https://$1example.com/"/>
-      <rule from="^http://sub\.example\.org/" to="https://secure.example.org/"/>
-      <exclusion pattern="^http://blog\.example\.com/"/>
-      <rule from="^http://insecure\.test\.com/" to="https://insecure.test.com/"/>
+      <rule from="^http://(www\\.)?example\\.com/" to="https://$1example.com/"/>
+      <rule from="^http://sub\\.example\\.org/" to="https://secure.example.org/"/>
+      <exclusion pattern="^http://blog\\.example\\.com/"/>
+      <rule from="^http://insecure\\.test\\.com/" to="https://insecure.test.com/"/>
     </ruleset>
     """
     

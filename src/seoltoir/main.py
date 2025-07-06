@@ -3,6 +3,10 @@
 Main entry point for the Seoltoir web browser application.
 """
 
+import os
+# Set GSK renderer to NGL for better performance
+os.environ['GSK_RENDERER'] = 'ngl'
+
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -11,12 +15,9 @@ gi.require_version("Pango", "1.0")
 from gi.repository import Gtk, Adw, GLib, Gio, WebKit, Pango
 from pathlib import Path
 
-import os
 import sys
 import argparse
 import json
-
-os.environ['GSK_RENDERER'] = 'ngl'
 
 _current_file_path = os.path.abspath(__file__)
 _module_root_dir = os.path.dirname(os.path.dirname(_current_file_path)) # Go up from seoltoir/main.py to site-packages
@@ -30,6 +31,7 @@ from .debug import debug_print, set_debug_mode
 from .database import DatabaseManager
 from .download_manager import DownloadManager
 from .container_manager import ContainerManager
+from .search_engine_manager import SearchEngineManager
 from .adblock_parser import AdblockParser
 from .https_everywhere_rules import HttpsEverywhereRules
 from .ui_loader import UILoader
@@ -71,13 +73,8 @@ class SeoltoirApplication(Adw.Application):
 
         SeoltoirApplication._instance = self
 
-        _settings_for_init_search = Gio.Settings.new(APP_ID)
-        current_search_engines_json = _settings_for_init_search.get_strv("search-engines")
-        current_search_engines = [json.loads(s) for s in current_search_engines_json]
-        if not current_search_engines:
-            default_engines = [{"name": "DuckDuckGo", "url": "https://duckduckgo.com/?q=%s"}]
-            _settings_for_init_search.set_strv("search-engines", [json.dumps(e) for e in default_engines])
-            _settings_for_init_search.set_string("selected-search-engine-name", "DuckDuckGo")
+        # Initialize search engine manager
+        self.search_engine_manager = SearchEngineManager(self.db_manager)
 
         self.container_manager = ContainerManager(APP_ID)
 
@@ -148,6 +145,9 @@ class SeoltoirApplication(Adw.Application):
     def _on_show_preferences(self, action, parameter):
         from .preferences_window import SeoltoirPreferencesWindow
         prefs_window = SeoltoirPreferencesWindow(application=self)
+        if self.window:
+            prefs_window.set_transient_for(self.window)
+            prefs_window.set_modal(True)
         prefs_window.present()
 
     def _on_show_history(self, action, parameter):
@@ -226,30 +226,30 @@ class SeoltoirApplication(Adw.Application):
         about_dialog.website = "https://github.com/tobagin/seoltoir"
         about_dialog.issue_url = "https://github.com/tobagin/seoltoir/issues"
         about_dialog.set_transient_for(self.window)
-        about_dialog.set_comments(
+        about_dialog.comments = (
             "Seoltóir is a modern, privacy-focused web browser built with GTK4 and WebKitGTK. "
             "It features integrated ad and tracker blocking, advanced cookie management, "
             "container tabs for site isolation, and a clean, adaptive interface."
         )
-        about_dialog.set_developers(["Thiago Fernandes"])
-        about_dialog.set_documenters(["Thiago Fernandes"])
-        about_dialog.set_translator_credits("Translations welcome! See GitHub for details.")
-        about_dialog.set_copyright("© 2025 Thiago Fernandes")
-        about_dialog.set_application_icon("io.github.tobagin.seoltoir")
-        about_dialog.set_support_url("https://github.com/tobagin/seoltoir/discussions")
+        about_dialog.developers = ["Thiago Fernandes"]
+        about_dialog.documenters = ["Thiago Fernandes"]
+        about_dialog.translator_credits = "Translations welcome! See GitHub for details."
+        about_dialog.copyright = "© 2025 Thiago Fernandes"
+        about_dialog.application_icon = "io.github.tobagin.seoltoir"
+        about_dialog.support_url = "https://github.com/tobagin/seoltoir/discussions"
         about_dialog.present()
 
     def _get_selected_search_engine_url(self, search_query: str) -> str:
-        settings = Gio.Settings.new(APP_ID)
-        selected_name = settings.get_string("selected-search-engine-name")
-        search_engines_json = settings.get_strv("search-engines")
-        search_engines = [json.loads(s) for s in search_engines_json]
-
-        for se in search_engines:
-            if se["name"] == selected_name:
-                return se["url"].replace("%s", GLib.uri_escape_string(search_query, None))
+        """Get search URL for query, supporting keyword-based search shortcuts."""
+        # Parse search input for keyword shortcuts
+        search_type, processed_input = self.search_engine_manager.parse_search_input(search_query)
         
-        return f"https://duckduckgo.com/?q={GLib.uri_escape_string(search_query, None)}"
+        if search_type == "keyword":
+            # Keyword search found, return the processed URL
+            return processed_input
+        else:
+            # Regular search using default engine
+            return self.search_engine_manager.search_with_engine(search_query)
 
     def _get_current_session_data(self) -> list[dict]:
         session_data = []
@@ -259,6 +259,7 @@ class SeoltoirApplication(Adw.Application):
                 browser_view = page.get_child()
                 
                 # Try to serialize session state, but handle if method doesn't exist
+                serialized_state = ""
                 try:
                     if hasattr(browser_view.webview, 'serialize_session_state'):
                         serialized_state_gbytes = browser_view.webview.serialize_session_state()

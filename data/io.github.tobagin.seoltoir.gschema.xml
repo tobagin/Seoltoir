@@ -1,1 +1,192 @@
- 
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema path="/io/github/tobagin/seoltoir/" id="io.github.tobagin.seoltoir">
+    
+    <!-- Homepage setting -->
+    <key name="homepage" type="s">
+      <default>"https://duckduckgo.com"</default>
+      <summary>Homepage URL</summary>
+      <description>The URL to load when opening a new tab or starting the browser</description>
+    </key>
+    
+    <!-- Search engine settings -->
+    <key name="default-search-engine" type="s">
+      <default>"DuckDuckGo"</default>
+      <summary>Default search engine</summary>
+      <description>The name of the default search engine to use for searches</description>
+    </key>
+    
+    <key name="search-engines" type="as">
+      <default>[]</default>
+      <summary>Search engines</summary>
+      <description>List of configured search engines in JSON format</description>
+    </key>
+    
+    <key name="selected-search-engine-name" type="s">
+      <default>"DuckDuckGo"</default>
+      <summary>Selected search engine name</summary>
+      <description>Name of the currently selected search engine</description>
+    </key>
+    
+    <!-- Privacy settings -->
+    <key name="enable-ad-blocking" type="b">
+      <default>true</default>
+      <summary>Enable ad blocking</summary>
+      <description>Whether to block advertisements and trackers</description>
+    </key>
+    
+    <key name="adblock-filter-urls" type="as">
+      <default>["https://easylist.to/easylist/easylist.txt"]</default>
+      <summary>Ad block filter URLs</summary>
+      <description>List of URLs for ad blocking filter lists</description>
+    </key>
+    
+    <key name="enable-https-everywhere" type="b">
+      <default>true</default>
+      <summary>Enable HTTPS Everywhere</summary>
+      <description>Whether to force HTTPS connections when possible</description>
+    </key>
+    
+    <key name="https-everywhere-rules-url" type="s">
+      <default>"https://www.eff.org/files/https-everywhere-rules.json"</default>
+      <summary>HTTPS Everywhere rules URL</summary>
+      <description>URL for HTTPS Everywhere rules</description>
+    </key>
+    
+    <!-- JavaScript settings -->
+    <key name="enable-javascript" type="b">
+      <default>true</default>
+      <summary>Enable JavaScript</summary>
+      <description>Whether to enable JavaScript execution</description>
+    </key>
+    
+    <key name="javascript-exceptions" type="as">
+      <default>[]</default>
+      <summary>JavaScript exceptions</summary>
+      <description>List of domains where JavaScript behavior differs from default</description>
+    </key>
+    
+    <!-- Network settings -->
+    <key name="enable-webrtc" type="b">
+      <default>false</default>
+      <summary>Enable WebRTC</summary>
+      <description>Whether to enable WebRTC functionality</description>
+    </key>
+    
+    <key name="user-agent" type="s">
+      <default>""</default>
+      <summary>Custom user agent</summary>
+      <description>Custom user agent string (empty for default)</description>
+    </key>
+    
+    <!-- DNS settings -->
+    <key name="enable-doh" type="b">
+      <default>false</default>
+      <summary>Enable DNS over HTTPS</summary>
+      <description>Whether to use DNS over HTTPS</description>
+    </key>
+    
+    <key name="doh-provider-url" type="s">
+      <default>"https://cloudflare-dns.com/dns-query"</default>
+      <summary>DoH provider URL</summary>
+      <description>DNS over HTTPS provider URL</description>
+    </key>
+    
+    <key name="enable-dot" type="b">
+      <default>false</default>
+      <summary>Enable DNS over TLS</summary>
+      <description>Whether to use DNS over TLS</description>
+    </key>
+    
+    <key name="dot-provider-host" type="s">
+      <default>"1.1.1.1"</default>
+      <summary>DoT provider host</summary>
+      <description>DNS over TLS provider hostname</description>
+    </key>
+    
+    <key name="dot-provider-port" type="i">
+      <default>853</default>
+      <summary>DoT provider port</summary>
+      <description>DNS over TLS provider port</description>
+    </key>
+    
+    <!-- Font settings -->
+    <key name="default-font-family" type="s">
+      <default>"sans-serif"</default>
+      <summary>Default font family</summary>
+      <description>Default font family for web content</description>
+    </key>
+    
+    <key name="default-font-size" type="i">
+      <default>16</default>
+      <summary>Default font size</summary>
+      <description>Default font size for web content in pixels</description>
+    </key>
+    
+    <!-- Download settings -->
+    <key name="ask-download-location" type="b">
+      <default>true</default>
+      <summary>Ask download location</summary>
+      <description>Whether to ask for download location for each download</description>
+    </key>
+    
+    <key name="download-directory" type="s">
+      <default>""</default>
+      <summary>Download directory</summary>
+      <description>Default download directory (empty for system default)</description>
+    </key>
+    
+    <!-- Theme settings -->
+    <key name="app-theme-variant" type="s">
+      <default>"auto"</default>
+      <summary>Application theme variant</summary>
+      <description>Theme variant: auto, light, or dark</description>
+    </key>
+    
+    <key name="override-system-theme" type="b">
+      <default>false</default>
+      <summary>Override system theme</summary>
+      <description>Whether to override the system theme setting</description>
+    </key>
+    
+    <!-- Privacy settings continued -->
+    <key name="delete-cookies-on-close" type="b">
+      <default>false</default>
+      <summary>Delete cookies on close</summary>
+      <description>Whether to delete all cookies when closing the browser</description>
+    </key>
+    
+    <key name="referrer-policy" type="s">
+      <default>"strict-origin-when-cross-origin"</default>
+      <summary>Referrer policy</summary>
+      <description>Default referrer policy for web requests</description>
+    </key>
+    
+    <!-- Fingerprinting protection settings -->
+    <key name="enable-canvas-spoofing" type="b">
+      <default>false</default>
+      <summary>Enable canvas fingerprinting spoofing</summary>
+      <description>Whether to add noise to canvas rendering to prevent fingerprinting</description>
+    </key>
+    
+    <key name="enable-font-spoofing" type="b">
+      <default>false</default>
+      <summary>Enable font enumeration spoofing</summary>
+      <description>Whether to spoof the list of fonts reported to websites</description>
+    </key>
+    
+    <key name="enable-hardware-concurrency-spoofing" type="b">
+      <default>false</default>
+      <summary>Enable hardware concurrency spoofing</summary>
+      <description>Whether to spoof reported CPU core count and device memory</description>
+    </key>
+    
+    <!-- Font settings -->
+    <key name="font-family" type="s">
+      <default>"sans-serif"</default>
+      <summary>Font family</summary>
+      <description>Font family for web content</description>
+    </key>
+    
+  </schema>
+</schemalist>

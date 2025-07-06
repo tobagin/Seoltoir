@@ -13,6 +13,8 @@ class UILoader:
         data_dirs = [
             # Development path (when running from source)
             os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data', 'ui'),
+            # Flatpak app installed path
+            '/app/share/seoltoir/ui',
             # Installed path
             os.path.join(GLib.get_user_data_dir(), 'seoltoir', 'ui'),
             # System-wide installed path

@@ -64,6 +64,17 @@
             </child>
             
             <child type="end">
+              <object class="GtkLabel" id="zoom_indicator">
+                <property name="label">100%</property>
+                <style>
+                  <class name="caption"/>
+                </style>
+                <property name="halign">end</property>
+                <property name="visible">false</property>
+              </object>
+            </child>
+            
+            <child type="end">
               <object class="GtkButton" id="bookmark_button">
                 <property name="icon-name">bookmark-new-symbolic</property>
                 <property name="tooltip-text">Add Bookmark</property>

@@ -52,6 +52,7 @@ class SeoltoirWindow(Adw.ApplicationWindow):
         self.close_find_button = builder.get_object('close_find_button')
         self.toast_overlay = builder.get_object('toast_overlay')
         self.main_box = builder.get_object('main_box')
+        self.zoom_indicator = builder.get_object('zoom_indicator')
         
         # Get headerbar buttons
         self.bookmark_button = builder.get_object('bookmark_button')
@@ -106,6 +107,12 @@ class SeoltoirWindow(Adw.ApplicationWindow):
         self.lookup_action("find_in_page").connect("activate", self._on_find_in_page)
         self.add_action(Gio.SimpleAction.new("print_current_page", None))
         self.lookup_action("print_current_page").connect("activate", self._on_print_current_page)
+        self.add_action(Gio.SimpleAction.new("print_selection", None))
+        self.lookup_action("print_selection").connect("activate", self._on_print_selection)
+        self.add_action(Gio.SimpleAction.new("print_to_pdf", None))
+        self.lookup_action("print_to_pdf").connect("activate", self._on_print_to_pdf)
+        self.add_action(Gio.SimpleAction.new("page_setup", None))
+        self.lookup_action("page_setup").connect("activate", self._on_page_setup)
         self.add_action(Gio.SimpleAction.new("show_import_export_dialog", None))
         self.lookup_action("show_import_export_dialog").connect("activate", self._on_show_import_export_dialog)
         
@@ -113,6 +120,14 @@ class SeoltoirWindow(Adw.ApplicationWindow):
         self.lookup_action("show_downloads").connect("activate", self._on_show_downloads)
         self.add_action(Gio.SimpleAction.new("bookmark_current_page", None))
         self.lookup_action("bookmark_current_page").connect("activate", self._on_bookmark_current_page)
+        
+        # Zoom actions
+        self.add_action(Gio.SimpleAction.new("zoom_in", None))
+        self.lookup_action("zoom_in").connect("activate", self._on_zoom_in)
+        self.add_action(Gio.SimpleAction.new("zoom_out", None))
+        self.lookup_action("zoom_out").connect("activate", self._on_zoom_out)
+        self.add_action(Gio.SimpleAction.new("zoom_reset", None))
+        self.lookup_action("zoom_reset").connect("activate", self._on_zoom_reset)
 
         # --- Tier 6: Tab Context Menu Actions ---
         self.add_action(Gio.SimpleAction.new("close_current_tab", None))
@@ -129,7 +144,7 @@ class SeoltoirWindow(Adw.ApplicationWindow):
         self.new_tab_button_header = builder.get_object('new_tab_button_header')
         self.new_private_tab_button_header = builder.get_object('new_private_tab_button_header')
         self.new_tab_button_header.connect("clicked", self._on_new_tab_clicked)
-        self.new_private_tab_button_header.connect("clicked", self._on_new_private_tab_action_activated)
+        self.new_private_tab_button_header.connect("clicked", self._on_new_private_tab_clicked)
 
     def _on_address_bar_activate(self, entry):
         url = entry.get_text()
@@ -153,6 +168,11 @@ class SeoltoirWindow(Adw.ApplicationWindow):
         self.open_new_tab_with_url(homepage, is_private=False)
 
     def _on_new_private_tab_action_activated(self, action, parameter):
+        settings = Gio.Settings.new(self.get_application().get_application_id())
+        homepage = settings.get_string("homepage")
+        self.open_new_tab_with_url(homepage, is_private=True, container_id="private")
+    
+    def _on_new_private_tab_clicked(self, button):
         settings = Gio.Settings.new(self.get_application().get_application_id())
         homepage = settings.get_string("homepage")
         self.open_new_tab_with_url(homepage, is_private=True, container_id="private")
@@ -209,18 +229,30 @@ class SeoltoirWindow(Adw.ApplicationWindow):
         # Connect view-specific signals for UI updates (not global)
         browser_view.connect("blocked-count-changed", self._on_blocked_count_changed)
         browser_view.connect("show-notification", self._on_show_notification)
+        browser_view.connect("zoom-level-changed", self._on_zoom_level_changed)
 
         if is_private:
             page_title = "Private Tab"
-            page_icon = "security-high-symbolic"
+            page_icon = "dialog-password-symbolic"  # More commonly available
         else:
             page_title = "Loading..."
-            page_icon = "web-browser-symbolic"
+            page_icon = "applications-internet"  # More commonly available
 
         page = self.tab_view.append(browser_view)
         page.set_title(page_title)
-        icon = Gio.ThemedIcon.new(page_icon)
-        page.set_icon(icon)
+        try:
+            icon = Gio.ThemedIcon.new(page_icon)
+            debug_print(f"[DEBUG] Setting initial tab icon: {page_icon} -> {icon}")
+            page.set_icon(icon)
+        except Exception as e:
+            debug_print(f"[DEBUG] Error creating initial tab icon for {page_icon}: {e}")
+            # Try fallback icon
+            try:
+                fallback_icon = Gio.ThemedIcon.new("web-browser-symbolic")
+                page.set_icon(fallback_icon)
+                debug_print(f"[DEBUG] Set fallback icon successfully")
+            except Exception as e2:
+                debug_print(f"[DEBUG] Error setting fallback icon: {e2}")
 
         # Load the URL if no web_view was provided
         if not web_view:
@@ -286,15 +318,41 @@ class SeoltoirWindow(Adw.ApplicationWindow):
             page.set_title(title)
 
     def _on_browser_favicon_changed(self, browser_view, favicon):
-        debug_print(f"[DEBUG] _on_browser_favicon_changed called with favicon: {favicon} (type: {type(favicon)})")
+        debug_print(f"[DEBUG] === _on_browser_favicon_changed CALLED ===")
+        debug_print(f"[DEBUG] browser_view: {browser_view}")
+        debug_print(f"[DEBUG] favicon: {favicon} (type: {type(favicon)})")
+        
         page = self._get_page_for_child(browser_view)
+        debug_print(f"[DEBUG] _get_page_for_child returned: {page}")
+        
         if page:
+            debug_print(f"[DEBUG] Found page for browser_view: {page}")
+            debug_print(f"[DEBUG] Page title: {page.get_title()}")
+            
             if favicon:
                 debug_print(f"[DEBUG] Setting tab icon to favicon: {favicon}")
-                page.set_icon(favicon)
+                try:
+                    page.set_icon(favicon)
+                    debug_print(f"[DEBUG] Successfully set favicon to page")
+                    
+                    # Verify the icon was set
+                    current_icon = page.get_icon()
+                    debug_print(f"[DEBUG] Current page icon after setting: {current_icon}")
+                    
+                except Exception as e:
+                    debug_print(f"[DEBUG] Error setting favicon: {e}")
+                    import traceback
+                    debug_print(f"[DEBUG] Traceback: {traceback.format_exc()}")
             else:
-                debug_print(f"[DEBUG] Reverting to default icon")
-                page.set_icon(self._get_default_icon())
+                debug_print(f"[DEBUG] Favicon is None, keeping current icon")
+        else:
+            debug_print(f"[DEBUG] No page found for browser_view")
+            # Let's debug why we can't find the page
+            debug_print(f"[DEBUG] Total pages in tab_view: {self.tab_view.get_n_pages()}")
+            for i in range(self.tab_view.get_n_pages()):
+                p = self.tab_view.get_nth_page(i)
+                child = p.get_child()
+                debug_print(f"[DEBUG] Page {i}: {p}, child: {child}, matches: {child == browser_view}")
 
     def _get_default_icon(self):
         """Get the default icon for tabs."""
@@ -303,8 +361,12 @@ class SeoltoirWindow(Adw.ApplicationWindow):
             # Use a simple default icon - you can replace this with your app's icon
             return Gio.ThemedIcon.new("applications-internet")
         except:
-            # Fallback to a generic icon
-            return Gio.ThemedIcon.new("text-html")
+            try:
+                # Fallback to a generic icon
+                return Gio.ThemedIcon.new("text-html")
+            except:
+                # Ultimate fallback - return None to prevent setting invalid icon
+                return None
 
     def _on_browser_load_changed(self, browser_view, load_event):
         current_page = self.tab_view.get_selected_page()
@@ -333,6 +395,7 @@ class SeoltoirWindow(Adw.ApplicationWindow):
         browser_view.connect("new-window-requested", self._on_new_window_requested)
         browser_view.connect("blocked-count-changed", self._on_blocked_count_changed)
         browser_view.connect("show-notification", self._on_show_notification)
+        browser_view.connect("zoom-level-changed", self._on_zoom_level_changed)
 
     def _on_selected_page_changed(self, tab_view, param):
         page = tab_view.get_selected_page()
@@ -344,6 +407,8 @@ class SeoltoirWindow(Adw.ApplicationWindow):
             self.back_button.set_sensitive(browser_view.webview.can_go_back())
             self.forward_button.set_sensitive(browser_view.webview.can_go_forward())
             self.privacy_indicator.set_text(f"{browser_view.blocked_count_for_page} blocked") # Update indicator
+            # Update zoom indicator
+            self._update_zoom_indicator(browser_view.get_zoom_level())
         else:
             self.get_application().quit()
 
@@ -439,6 +504,8 @@ class SeoltoirWindow(Adw.ApplicationWindow):
             # Get the WebContext from the browser view's webview
             web_context = browser_view.webview.get_context()
             site_settings_dialog = SiteSettingsDialog(self.get_application(), current_uri, web_context)
+            site_settings_dialog.set_transient_for(self)
+            site_settings_dialog.set_modal(True)
             site_settings_dialog.present()
 
     def _on_new_container_tab_response(self, dialog, response_id, name_entry):
@@ -462,6 +529,31 @@ class SeoltoirWindow(Adw.ApplicationWindow):
         if current_page:
             browser_view = current_page.get_child()
             browser_view.print_page()
+
+    def _on_print_selection(self, action, parameter):
+        """Print only selected text."""
+        current_page = self.tab_view.get_selected_page()
+        if current_page:
+            browser_view = current_page.get_child()
+            browser_view.print_page(print_selection_only=True)
+
+    def _on_print_to_pdf(self, action, parameter):
+        """Export current page to PDF."""
+        current_page = self.tab_view.get_selected_page()
+        if current_page:
+            browser_view = current_page.get_child()
+            from .browser_view import SeoltoirPrintManager
+            print_manager = SeoltoirPrintManager(browser_view.webview, self)
+            print_manager.print_to_pdf()
+
+    def _on_page_setup(self, action, parameter):
+        """Show page setup dialog."""
+        current_page = self.tab_view.get_selected_page()
+        if current_page:
+            browser_view = current_page.get_child()
+            from .browser_view import SeoltoirPrintManager
+            print_manager = SeoltoirPrintManager(browser_view.webview, self)
+            print_manager.show_page_setup_dialog()
 
 
     def _on_find_in_page(self, action, parameter):
@@ -599,3 +691,41 @@ class SeoltoirWindow(Adw.ApplicationWindow):
     def _on_address_bar_focus_notify(self, entry, param):
         if entry.has_focus:
             GLib.idle_add(lambda: entry.select_region(0, -1))
+
+    def _on_zoom_in(self, action, parameter):
+        """Handle zoom in action."""
+        current_page = self.tab_view.get_selected_page()
+        if current_page:
+            browser_view = current_page.get_child()
+            browser_view.zoom_in()
+
+    def _on_zoom_out(self, action, parameter):
+        """Handle zoom out action."""
+        current_page = self.tab_view.get_selected_page()
+        if current_page:
+            browser_view = current_page.get_child()
+            browser_view.zoom_out()
+
+    def _on_zoom_reset(self, action, parameter):
+        """Handle zoom reset action."""
+        current_page = self.tab_view.get_selected_page()
+        if current_page:
+            browser_view = current_page.get_child()
+            browser_view.zoom_reset()
+
+    def _on_zoom_level_changed(self, browser_view, zoom_level):
+        """Handle zoom level changes from browser view."""
+        current_page = self.tab_view.get_selected_page()
+        if current_page and current_page.get_child() == browser_view:
+            self._update_zoom_indicator(zoom_level)
+
+    def _update_zoom_indicator(self, zoom_level):
+        """Update the zoom indicator in the header bar."""
+        zoom_percentage = int(zoom_level * 100)
+        self.zoom_indicator.set_text(f"{zoom_percentage}%")
+        
+        # Show indicator only when zoom is not 100%
+        if zoom_percentage != 100:
+            self.zoom_indicator.set_visible(True)
+        else:
+            self.zoom_indicator.set_visible(False)

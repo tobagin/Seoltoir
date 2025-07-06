@@ -15,8 +15,12 @@ class BookmarkManager(Gtk.Box):
         builder.add_from_file(UILoader.get_ui_file_path('bookmark-manager.ui'))
         box = builder.get_object('bookmark_manager')
         super().__init__(orientation=box.get_orientation(), spacing=box.get_spacing(), *args, **kwargs)
-        for child in box.get_children():
+        child = box.get_first_child()
+        while child:
+            next_child = child.get_next_sibling()
+            box.remove(child)
             self.append(child)
+            child = next_child
 
         self.db_manager = db_manager
 
@@ -33,8 +37,11 @@ class BookmarkManager(Gtk.Box):
 
     def load_bookmarks(self):
         """Loads bookmark entries from the database and populates the listbox."""
-        for child in self.bookmark_listbox.get_children():
+        child = self.bookmark_listbox.get_first_child()
+        while child:
+            next_child = child.get_next_sibling()
             self.bookmark_listbox.remove(child)
+            child = next_child
 
         bookmark_data = self.db_manager.get_bookmarks()
         for url, title, added_date_str in bookmark_data:

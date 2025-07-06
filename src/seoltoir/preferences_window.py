@@ -3,377 +3,328 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 gi.require_version("Soup", "3.0") # For checking DoT/DoH
 from gi.repository import Gtk, Adw, Gio, GLib
+import os
+from .ui_loader import UILoader
 
 class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
+    
     def __init__(self, application, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        
+        # Load the UI file
+        ui_path = UILoader.get_ui_file_path("preferences-window.ui")
+        self.builder = Gtk.Builder()
+        self.builder.add_from_file(ui_path)
+        
         self.set_application(application)
         self.set_title("Seoltóir Preferences")
         self.set_default_size(600, 400)
+        
+        # Get all the widgets from the UI file and add them to this window
+        self._get_ui_widgets()
 
         # Get GSettings instance for our app ID
         self.settings = Gio.Settings.new(application.get_application_id())
-
-        # General Page
-        general_page = Adw.PreferencesPage.new()
-        general_page.set_title("General")
-        general_page.set_icon_name("document-page-setup-symbolic")
-        self.add(general_page)
-
-        general_group = Adw.PreferencesGroup.new()
-        general_group.set_title("Startup")
-        general_page.add(general_group)
-
-        # Homepage setting
-        homepage_row = Adw.EntryRow.new()
-        homepage_row.set_title("Homepage")
-        homepage_row.set_property("placeholder-text", "e.g., https://www.duckduckgo.com")
-        general_group.add(homepage_row)
-        self.settings.bind("homepage", homepage_row, "text", Gio.SettingsBindFlags.DEFAULT)
-
-        # --- Tier 7 / 9: Downloads Settings ---
-        downloads_group = Adw.PreferencesGroup.new() # Already exists from Tier 7
-        downloads_group.set_title("Downloads")
-        general_page.add(downloads_group)
-
-        # Default Download Directory
-        self.download_dir_row = Adw.ActionRow.new()
-        self.download_dir_row.set_title("Default Download Directory")
-        downloads_group.add(self.download_dir_row)
-
-        # FileChooserButton for selecting directory
-        self.download_dir_chooser = Gtk.FileChooserButton.new(
-            "Select Download Directory", Gtk.FileChooserAction.SELECT_FOLDER
-        )
-        self.download_dir_chooser.set_valign(Gtk.Align.CENTER)
-        self.download_dir_row.add_suffix(self.download_dir_chooser)
         
-        # Set initial value from GSettings
+        # Get reference to SearchEngineManager
+        self.search_engine_manager = application.search_engine_manager
+        
+        # Set up all the UI components
+        self._setup_ui()
+        
+        # Connect all signals
+        self._connect_signals()
+    
+    def _get_ui_widgets(self):
+        """Get all widgets from the UI file."""
+        # General page widgets
+        self.homepage_row = self.builder.get_object("homepage_row")
+        self.download_dir_row = self.builder.get_object("download_dir_row")
+        self.download_dir_button = self.builder.get_object("download_dir_button")
+        self.ask_download_location_row = self.builder.get_object("ask_download_location_row")
+        self.default_search_engine_combo = self.builder.get_object("default_search_engine_combo")
+        self.search_engine_listbox = self.builder.get_object("search_engine_listbox")
+        self.add_search_engine_button = self.builder.get_object("add_search_engine_button")
+        
+        # Privacy page widgets
+        self.ad_blocking_row = self.builder.get_object("ad_blocking_row")
+        self.user_agent_row = self.builder.get_object("user_agent_row")
+        self.canvas_spoofing_row = self.builder.get_object("canvas_spoofing_row")
+        self.font_spoofing_row = self.builder.get_object("font_spoofing_row")
+        self.hardware_spoofing_row = self.builder.get_object("hardware_spoofing_row")
+        self.delete_cookies_row = self.builder.get_object("delete_cookies_row")
+        self.webrtc_row = self.builder.get_object("webrtc_row")
+        self.adblock_urls_row = self.builder.get_object("adblock_urls_row")
+        self.doh_enable_row = self.builder.get_object("doh_enable_row")
+        self.doh_provider_row = self.builder.get_object("doh_provider_row")
+        self.dot_enable_row = self.builder.get_object("dot_enable_row")
+        self.dot_provider_host_row = self.builder.get_object("dot_provider_host_row")
+        self.dot_provider_port_row = self.builder.get_object("dot_provider_port_row")
+        self.https_enable_row = self.builder.get_object("https_enable_row")
+        self.referrer_policy_combo = self.builder.get_object("referrer_policy_combo")
+        self.js_enable_row = self.builder.get_object("js_enable_row")
+        
+        # Appearance page widgets
+        self.override_theme_row = self.builder.get_object("override_theme_row")
+        self.theme_variant_combo = self.builder.get_object("theme_variant_combo")
+        self.font_button = self.builder.get_object("font_button")
+        
+        # Add the pages to the window
+        general_page = self.builder.get_object("general_page")
+        privacy_page = self.builder.get_object("privacy_page")
+        appearance_page = self.builder.get_object("appearance_page")
+        
+        # Add pages to this preferences window
+        if general_page:
+            self.add(general_page)
+        if privacy_page:
+            self.add(privacy_page)
+        if appearance_page:
+            self.add(appearance_page)
+    
+    def _setup_ui(self):
+        """Set up all UI components with initial values and settings bindings."""
+        # Bind simple settings
+        self.settings.bind("homepage", self.homepage_row, "text", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("ask-download-location", self.ask_download_location_row, "active", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("enable-ad-blocking", self.ad_blocking_row, "active", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("user-agent", self.user_agent_row, "text", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("enable-canvas-spoofing", self.canvas_spoofing_row, "active", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("enable-font-spoofing", self.font_spoofing_row, "active", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("enable-hardware-concurrency-spoofing", self.hardware_spoofing_row, "active", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("delete-cookies-on-close", self.delete_cookies_row, "active", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("enable-webrtc", self.webrtc_row, "active", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("enable-doh", self.doh_enable_row, "active", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("doh-provider-url", self.doh_provider_row, "text", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("enable-dot", self.dot_enable_row, "active", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("dot-provider-host", self.dot_provider_host_row, "text", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("dot-provider-port", self.dot_provider_port_row, "value", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("enable-https-everywhere", self.https_enable_row, "active", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("enable-javascript", self.js_enable_row, "active", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("override-system-theme", self.override_theme_row, "active", Gio.SettingsBindFlags.DEFAULT)
+        
+        # Set up download directory button
+        self._setup_download_directory()
+        
+        # Set up adblock URLs entry
+        self.adblock_urls_row.set_text(", ".join(self.settings.get_strv("adblock-filter-urls")))
+        
+        # Set up combo boxes
+        self._setup_referrer_policy_combo()
+        self._setup_theme_variant_combo()
+        self._setup_search_engine_combo()
+        
+        # Ensure font size has a default value if not set BEFORE setting up font button
+        if self.settings.get_int("default-font-size") <= 0:
+            self.settings.set_int("default-font-size", 16)
+        
+        # Set up font button
+        self._setup_font_button()
+        
+        # Populate search engine listbox
+        self._populate_search_engine_listbox()
+    
+    def _setup_download_directory(self):
+        """Set up the download directory button."""
         current_dir_uri = self.settings.get_string("download-directory")
         if current_dir_uri:
-            self.download_dir_chooser.set_uri(current_dir_uri)
+            current_path = GLib.filename_from_uri(current_dir_uri)[0]
+            self.download_dir_button.set_label(os.path.basename(current_path) or current_path)
         else:
             # Set default XDG Downloads path if not set
-            self.download_dir_chooser.set_uri(GLib.filename_to_uri(GLib.get_user_download_dir(), None))
-
-        self.download_dir_chooser.connect("file-set", self._on_download_dir_set)
-
-        # Always Ask Where to Save Files
-        ask_download_location_row = Adw.SwitchRow.new()
-        ask_download_location_row.set_title("Always ask where to save files")
-        downloads_group.add(ask_download_location_row)
-        self.settings.bind("ask-download-location", ask_download_location_row, "active", Gio.SettingsBindFlags.DEFAULT)
-
-        # Privacy & Security Page
-        privacy_page = Adw.PreferencesPage.new()
-        privacy_page.set_title("Privacy & Security")
-        privacy_page.set_icon_name("dialog-password-symbolic")
-        self.add(privacy_page)
-
-        privacy_group = Adw.PreferencesGroup.new()
-        privacy_group.set_title("Content Blocking")
-        privacy_page.add(privacy_group)
-
-        # Enable Ad Blocking switch
-        ad_blocking_row = Adw.SwitchRow.new()
-        ad_blocking_row.set_title("Enable Ad and Tracker Blocking")
-        ad_blocking_row.set_subtitle("Blocks ads, tracking scripts, and malicious domains.")
-        privacy_group.add(ad_blocking_row)
-        self.settings.bind("enable-ad-blocking", ad_blocking_row, "active", Gio.SettingsBindFlags.DEFAULT)
-
-        # User Agent String setting
-        user_agent_group = Adw.PreferencesGroup.new()
-        user_agent_group.set_title("Fingerprinting Resistance")
-        privacy_page.add(user_agent_group)
-
-        user_agent_row = Adw.EntryRow.new()
-        user_agent_row.set_title("User Agent String")
-        user_agent_row.set_subtitle("Leave empty for default. Set a generic one for better privacy.")
-        user_agent_row.set_property("placeholder-text", "e.g., Mozilla/5.0 (X11; Linux x86_64) ...")
-        user_agent_group.add(user_agent_row)
-        self.settings.bind("user-agent", user_agent_row, "text", Gio.SettingsBindFlags.DEFAULT)
-
-        # --- Tier 8: Granular Fingerprinting Toggles ---
-        canvas_spoofing_row = Adw.SwitchRow.new()
-        canvas_spoofing_row.set_title("Enable Canvas Fingerprinting Spoofing")
-        canvas_spoofing_row.set_subtitle("Adds noise to canvas rendering to make fingerprinting harder.")
-        user_agent_group.add(canvas_spoofing_row)
-        self.settings.bind("enable-canvas-spoofing", canvas_spoofing_row, "active", Gio.SettingsBindFlags.DEFAULT)
-
-        font_spoofing_row = Adw.SwitchRow.new()
-        font_spoofing_row.set_title("Enable Font Enumeration Spoofing")
-        font_spoofing_row.set_subtitle("Spoofs the list of fonts reported to websites.")
-        user_agent_group.add(font_spoofing_row)
-        self.settings.bind("enable-font-spoofing", font_spoofing_row, "active", Gio.SettingsBindFlags.DEFAULT)
-
-        hardware_spoofing_row = Adw.SwitchRow.new()
-        hardware_spoofing_row.set_title("Enable Hardware Concurrency Spoofing")
-        hardware_spoofing_row.set_subtitle("Spoofs reported CPU core count and device memory.")
-        user_agent_group.add(hardware_spoofing_row)
-        self.settings.bind("enable-hardware-concurrency-spoofing", hardware_spoofing_row, "active", Gio.SettingsBindFlags.DEFAULT)
-
-
-        # Cookie Management
-        cookie_group = Adw.PreferencesGroup.new()
-        cookie_group.set_title("Cookie Management")
-        privacy_page.add(cookie_group)
-        delete_cookies_row = Adw.SwitchRow.new()
-        delete_cookies_row.set_title("Delete non-bookmarked cookies on close")
-        delete_cookies_row.set_subtitle("Retains cookies only for bookmarked websites.")
-        cookie_group.add(delete_cookies_row)
-        self.settings.bind("delete-cookies-on-close", delete_cookies_row, "active", Gio.SettingsBindFlags.DEFAULT)
-
-        # WebRTC setting
-        webrtc_group = Adw.PreferencesGroup.new()
-        webrtc_group.set_title("WebRTC")
-        privacy_page.add(webrtc_group)
-        webrtc_row = Adw.SwitchRow.new()
-        webrtc_row.set_title("Enable WebRTC")
-        webrtc_row.set_subtitle("Disabling can prevent IP leaks, but may break video/audio calls.")
-        webrtc_group.add(webrtc_row)
-        self.settings.bind("enable-webrtc", webrtc_row, "active", Gio.SettingsBindFlags.DEFAULT)
-
-        # Adblock Filter Lists
-        adblock_group = Adw.PreferencesGroup.new()
-        adblock_group.set_title("Adblock Filter Lists")
-        privacy_page.add(adblock_group)
-        adblock_urls_row = Adw.EntryRow.new()
-        adblock_urls_row.set_title("Filter List URLs")
-        adblock_urls_row.set_subtitle("Comma-separated URLs (e.g., EasyList.txt)")
-        adblock_urls_row.set_property("placeholder-text", "https://easylist.to/easylist/easylist.txt")
-        adblock_group.add(adblock_urls_row)
-        adblock_urls_row.set_text(", ".join(self.settings.get_strv("adblock-filter-urls")))
-        adblock_urls_row.connect("changed", self._on_adblock_urls_changed)
-
-        # --- Tier 9: DNS over TLS (DoT) ---
-        doh_group = Adw.PreferencesGroup.new()
-        doh_group.set_title("DNS over HTTPS")
-        privacy_page.add(doh_group)
-        doh_enable_row = Adw.SwitchRow.new()
-        doh_enable_row.set_title("Enable DNS over HTTPS")
-        doh_enable_row.set_subtitle("Encrypts DNS queries to prevent snooping. Mutually exclusive with DoT.")
-        doh_group.add(doh_enable_row)
-        self.settings.bind("enable-doh", doh_enable_row, "active", Gio.SettingsBindFlags.DEFAULT)
-        doh_provider_row = Adw.EntryRow.new()
-        doh_provider_row.set_title("DoH Provider URL")
-        doh_provider_row.set_property("placeholder-text", "e.g., https://dns.google/dns-query")
-        doh_group.add(doh_provider_row)
-        self.settings.bind("doh-provider-url", doh_provider_row, "text", Gio.SettingsBindFlags.DEFAULT)
-
-        dot_group = Adw.PreferencesGroup.new()
-        dot_group.set_title("DNS over TLS")
-        privacy_page.add(dot_group)
-        dot_enable_row = Adw.SwitchRow.new()
-        dot_enable_row.set_title("Enable DNS over TLS")
-        dot_enable_row.set_subtitle("Encrypts DNS queries using TLS. Mutually exclusive with DoH.")
-        dot_group.add(dot_enable_row)
-        self.settings.bind("enable-dot", dot_enable_row, "active", Gio.SettingsBindFlags.DEFAULT)
-        dot_provider_host_row = Adw.EntryRow.new()
-        dot_provider_host_row.set_title("DoT Provider Host")
-        dot_provider_host_row.set_property("placeholder-text", "e.g., dns.google")
-        dot_group.add(dot_provider_host_row)
-        self.settings.bind("dot-provider-host", dot_provider_host_row, "text", Gio.SettingsBindFlags.DEFAULT)
-        dot_provider_port_row = Adw.SpinRow.new()
-        dot_provider_port_row.set_title("DoT Provider Port")
-        dot_provider_port_row.set_range(1, 65535)
-        dot_provider_port_row.set_increments(1, 10)
-        dot_group.add(dot_provider_port_row)
-        self.settings.bind("dot-provider-port", dot_provider_port_row, "value", Gio.SettingsBindFlags.DEFAULT)
-
-        # Tier 9: HTTPS Everywhere
-        https_everywhere_group = Adw.PreferencesGroup.new()
-        https_everywhere_group.set_title("HTTPS Everywhere")
-        privacy_page.add(https_everywhere_group)
-        https_enable_row = Adw.SwitchRow.new()
-        https_enable_row.set_title("Enable HTTPS Everywhere Rules")
-        https_enable_row.set_subtitle("Automatically upgrades HTTP to HTTPS where available based on a ruleset.")
-        https_everywhere_group.add(https_enable_row)
-        self.settings.bind("enable-https-everywhere", https_enable_row, "active", Gio.SettingsBindFlags.DEFAULT)
-        # Rule URL will be a read-only display, update is manual or periodic in background
-        # For now, no URL edit field.
-
-        # Referrer Policy
-        referrer_group = Adw.PreferencesGroup.new()
-        referrer_group.set_title("Referrer Policy")
-        privacy_page.add(referrer_group)
-        referrer_policy_model = Gtk.StringList.new(["no-referrer", "no-referrer-when-downgrade", "origin", "origin-when-cross-origin", "same-origin", "strict-origin", "strict-origin-when-cross-origin", "unsafe-url"])
-        self.referrer_policy_dropdown = Gtk.DropDown.new(referrer_policy_model, None)
+            default_path = GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DOWNLOAD)
+            if default_path:
+                self.download_dir_button.set_label(os.path.basename(default_path))
+                self.settings.set_string("download-directory", GLib.filename_to_uri(default_path, None))
+            else:
+                # Fallback to home directory if Downloads doesn't exist
+                home_path = GLib.get_home_dir()
+                self.download_dir_button.set_label("Home")
+                self.settings.set_string("download-directory", GLib.filename_to_uri(home_path, None))
+    
+    def _setup_referrer_policy_combo(self):
+        """Set up the referrer policy combo box."""
+        referrer_policy_model = Gtk.StringList.new([
+            "no-referrer", "no-referrer-when-downgrade", "origin", "origin-when-cross-origin",
+            "same-origin", "strict-origin", "strict-origin-when-cross-origin", "unsafe-url"
+        ])
+        self.referrer_policy_combo.set_model(referrer_policy_model)
+        
         # Set initial value
         current_referrer_policy = self.settings.get_string("referrer-policy")
         if current_referrer_policy:
             for i, item in enumerate(referrer_policy_model):
                 if item.get_string() == current_referrer_policy:
-                    self.referrer_policy_dropdown.set_selected(i)
+                    self.referrer_policy_combo.set_selected(i)
                     break
-        self.referrer_policy_dropdown.connect("notify::selected-item", self._on_referrer_policy_changed)
-        referrer_policy_row = Adw.ActionRow.new()
-        referrer_policy_row.set_title("Referrer Policy")
-        referrer_policy_row.add_suffix(self.referrer_policy_dropdown)
-        referrer_group.add(referrer_policy_row)
-
-        # JavaScript Control
-        js_group = Adw.PreferencesGroup.new()
-        js_group.set_title("JavaScript Control")
-        privacy_page.add(js_group)
-        js_enable_row = Adw.SwitchRow.new()
-        js_enable_row.set_title("Enable JavaScript Globally")
-        js_enable_row.set_subtitle("Disable JavaScript for all websites by default. Use per-site settings to override.")
-        js_group.add(js_enable_row)
-        self.settings.bind("enable-javascript", js_enable_row, "active", Gio.SettingsBindFlags.DEFAULT)
-
-        # Per-site JavaScript exceptions will be managed in a separate site settings dialog.
-
-        # Tier 9: Search Engine Management (Expanded from Tier 7)
-        search_engine_management_group = Adw.PreferencesGroup.new()
-        search_engine_management_group.set_title("Search Engine Management")
-        general_page.add(search_engine_management_group)
-
-        # Default Search Engine Dropdown
-        self.default_search_engine_dropdown = Gtk.DropDown.new_from_strings([]) # Will be populated dynamically
-        self.default_search_engine_dropdown.set_valign(Gtk.Align.CENTER)
-        default_search_engine_row = Adw.ActionRow.new()
-        default_search_engine_row.set_title("Default Search Engine")
-        default_search_engine_row.add_suffix(self.default_search_engine_dropdown)
-        search_engine_management_group.add(default_search_engine_row)
+    
+    def _setup_theme_variant_combo(self):
+        """Set up the theme variant combo box."""
+        theme_variant_model = Gtk.StringList.new(["Auto", "Light", "Dark"])
+        self.theme_variant_combo.set_model(theme_variant_model)
+        
+        # Set initial value from settings
+        current_variant = self.settings.get_string("app-theme-variant")
+        if current_variant == "auto":
+            self.theme_variant_combo.set_selected(0)
+        elif current_variant == "light":
+            self.theme_variant_combo.set_selected(1)
+        elif current_variant == "dark":
+            self.theme_variant_combo.set_selected(2)
+        else:  # Default
+            self.theme_variant_combo.set_selected(0)  # Default to auto
+    
+    def _setup_search_engine_combo(self):
+        """Set up the search engine combo box."""
         self._populate_search_engine_dropdown()
-        self.default_search_engine_dropdown.connect("notify::selected-item", self._on_default_search_engine_selected)
-
-        # List of Search Engines
-        search_engine_list_row = Adw.ActionRow.new()
-        search_engine_list_row.set_title("Configured Search Engines")
+    
+    def _setup_font_button(self):
+        """Set up the font button with current font family and size."""
+        from gi.repository import Pango
         
-        # A simple list box for showing search engines
-        self.search_engine_listbox = Gtk.ListBox.new()
-        self.search_engine_listbox.set_selection_mode(Gtk.SelectionMode.NONE)
-        search_engine_list_row.set_child(self.search_engine_listbox)
+        # Configure font button display options
+        self.font_button.set_use_font(True)  # Show font preview
+        self.font_button.set_use_size(True)  # Show size in button
         
-        search_engine_management_group.add(search_engine_list_row)
-
-        add_search_engine_button = Gtk.Button.new_with_label("Add New")
-        add_search_engine_button.set_tooltip_text("Add new search engine")
-        add_search_engine_button.add_css_class("suggested-action")
-        add_search_engine_button.connect("clicked", self._on_add_search_engine_clicked)
+        current_font = self.settings.get_string("font-family")
+        current_size = self.settings.get_int("default-font-size")
         
-        search_engine_management_group.add(add_search_engine_button)
-
-        # Listen to changes in the GSettings array
-        self.settings.connect("changed::search-engines", self._on_search_engines_changed)
-
-        # Populate the list box initially
-        self._populate_search_engine_listbox()
-
-        # Tier 9: Appearance Settings
-        appearance_page = Adw.PreferencesPage.new()
-        appearance_page.set_title("Appearance")
-        appearance_page.set_icon_name("preferences-desktop-theme-symbolic")
-        self.add(appearance_page)
-
-        theme_group = Adw.PreferencesGroup.new()
-        theme_group.set_title("Theme")
-        appearance_page.add(theme_group)
-
-        override_theme_row = Adw.SwitchRow.new()
-        override_theme_row.set_title("Override System Theme")
-        theme_group.add(override_theme_row)
-        self.settings.bind("override-system-theme", override_theme_row, "active", Gio.SettingsBindFlags.DEFAULT)
-        override_theme_row.connect("notify::active", self._on_override_system_theme_changed)
+        print(f"Loading font settings: family='{current_font}', size={current_size}")
         
-        theme_variant_model = Gtk.StringList.new(["light", "dark"])
-        self.theme_variant_dropdown = Gtk.DropDown.new(theme_variant_model, None)
-        theme_variant_row = Adw.ActionRow.new()
-        theme_variant_row.set_title("Theme Variant")
-        theme_variant_row.add_suffix(self.theme_variant_dropdown)
-        theme_group.add(theme_variant_row)
-        self.settings.bind("app-theme-variant", self.theme_variant_dropdown, "selected-item", Gio.SettingsBindFlags.DEFAULT)
-        self.theme_variant_dropdown.connect("notify::selected-item", self._on_app_theme_variant_changed)
-
-
-        font_group = Adw.PreferencesGroup.new()
-        font_group.set_title("Fonts")
-        appearance_page.add(font_group)
-
-        font_family_row = Adw.EntryRow.new()
-        font_family_row.set_title("Font Family")
-        font_family_row.set_property("placeholder-text", "e.g., sans-serif")
-        font_group.add(font_family_row)
-        self.settings.bind("font-family", font_family_row, "text", Gio.SettingsBindFlags.DEFAULT)
-
-        font_size_row = Adw.SpinRow.new()
-        font_size_row.set_title("Default Font Size")
-        font_size_row.set_range(8, 32)
-        font_size_row.set_increments(1, 2)
-        font_group.add(font_size_row)
-        self.settings.bind("default-font-size", font_size_row, "value", Gio.SettingsBindFlags.DEFAULT)
-
+        # Create complete font description with both family and size
+        if current_font and current_font.strip():
+            font_string = f"{current_font} {current_size}"
+        else:
+            font_string = f"sans-serif {current_size if current_size > 0 else 16}"
+            # Save default to settings if empty
+            self.settings.set_string("font-family", "sans-serif")
+        
+        print(f"Setting font string: '{font_string}'")
+        
+        # Create font description from string
+        font_desc = Pango.FontDescription.from_string(font_string)
+        
+        # Set the font description on the button
+        self.font_button.set_font_desc(font_desc)
+        
+        print(f"Font button initialized with: {font_desc.to_string()}")
+    
+    def _connect_signals(self):
+        """Connect all the signal handlers."""
+        self.download_dir_button.connect("clicked", self._on_download_dir_button_clicked)
+        self.adblock_urls_row.connect("changed", self._on_adblock_urls_changed)
+        self.referrer_policy_combo.connect("notify::selected", self._on_referrer_policy_changed)
+        self.theme_variant_combo.connect("notify::selected", self._on_app_theme_variant_changed)
+        self.override_theme_row.connect("notify::active", self._on_override_system_theme_changed)
+        self.default_search_engine_combo.connect("notify::selected", self._on_default_search_engine_selected)
+        self.add_search_engine_button.connect("clicked", self._on_add_search_engine_clicked)
+        self.font_button.connect("notify::font-desc", self._on_font_changed)
+    
     def _on_adblock_urls_changed(self, entry):
         urls_str = entry.get_text()
         urls_list = [url.strip() for url in urls_str.split(',') if url.strip()]
         self.settings.set_strv("adblock-filter-urls", urls_list)
 
-    def _on_referrer_policy_changed(self, dropdown, pspec):
-        selected_item = dropdown.get_selected_item()
-        if selected_item:
-            policy = selected_item.get_string()
-            self.settings.set_string("referrer-policy", policy)
+    def _on_referrer_policy_changed(self, combo_row, pspec):
+        selected_index = combo_row.get_selected()
+        if selected_index >= 0:
+            model = combo_row.get_model()
+            if model and selected_index < model.get_n_items():
+                item = model.get_item(selected_index)
+                policy = item.get_string()
+                self.settings.set_string("referrer-policy", policy)
         else:
             self.settings.set_string("referrer-policy", "strict-origin-when-cross-origin")
 
-    # --- Tier 7: Download Settings Handlers ---
-    def _on_download_dir_set(self, chooser):
-        selected_uri = chooser.get_uri()
-        self.settings.set_string("download-directory", selected_uri)
-        print(f"Default download directory set to: {selected_uri}")
+    def _on_download_dir_button_clicked(self, button):
+        """Handle download directory button click to open folder selection dialog."""
+        dialog = Gtk.FileDialog.new()
+        dialog.set_title("Select Download Directory")
+        
+        # Set initial directory if available
+        current_dir_uri = self.settings.get_string("download-directory")
+        if current_dir_uri:
+            try:
+                current_file = Gio.File.new_for_uri(current_dir_uri)
+                dialog.set_initial_folder(current_file)
+            except:
+                pass  # Fallback to default
+        
+        dialog.select_folder(self, None, self._on_download_dir_selected)
 
-    # --- Tier 9: Search Engine Management Handlers ---
+    def _on_download_dir_selected(self, dialog, result):
+        """Handle the result of folder selection."""
+        try:
+            folder = dialog.select_folder_finish(result)
+            if folder:
+                selected_uri = folder.get_uri()
+                selected_path = folder.get_path()
+                self.settings.set_string("download-directory", selected_uri)
+                # Update button label
+                self.download_dir_button.set_label(os.path.basename(selected_path) or selected_path)
+                print(f"Default download directory set to: {selected_uri}")
+        except Exception as e:
+            print(f"Error selecting download directory: {e}")
+
     def _populate_search_engine_dropdown(self):
-        search_engines = self.settings.get_value("search-engines").unpack()
-        names = [se["name"] for se in search_engines]
+        engines = self.search_engine_manager.get_all_engines()
+        names = [engine["name"] for engine in engines]
         
         model = Gtk.StringList.new(names)
-        self.default_search_engine_dropdown.set_model(model)
+        self.default_search_engine_combo.set_model(model)
         
-        selected_name = self.settings.get_string("selected-search-engine-name")
-        if selected_name in names:
-            self.default_search_engine_dropdown.set_selected(names.index(selected_name))
-        else:
-            self.default_search_engine_dropdown.set_selected(0) # Select first if not found
+        default_engine = self.search_engine_manager.get_default_engine()
+        if default_engine and default_engine["name"] in names:
+            self.default_search_engine_combo.set_selected(names.index(default_engine["name"]))
+        elif names:
+            self.default_search_engine_combo.set_selected(0) # Select first if not found
 
     def _populate_search_engine_listbox(self):
-        for child in self.search_engine_listbox.get_children():
+        child = self.search_engine_listbox.get_first_child()
+        while child:
+            next_child = child.get_next_sibling()
             self.search_engine_listbox.remove(child)
+            child = next_child
 
-        search_engines = self.settings.get_value("search-engines").unpack()
-        if not search_engines:
+        engines = self.search_engine_manager.get_all_engines()
+        if not engines:
             row = Adw.ActionRow.new()
             row.set_title("No search engines configured.")
             self.search_engine_listbox.append(row)
             return
 
-        for se in search_engines:
+        for engine in engines:
             row = Adw.ActionRow.new()
-            row.set_title(se["name"])
-            row.set_subtitle(se["url"])
+            title = engine["name"]
+            if engine.get("is_default"):
+                title += " (Default)"
+            if engine.get("keyword"):
+                title += f" [{engine['keyword']}]"
+            
+            row.set_title(title)
+            row.set_subtitle(engine["url"])
             
             edit_button = Gtk.Button.new_from_icon_name("document-edit-symbolic")
             edit_button.set_tooltip_text("Edit")
-            edit_button.connect("clicked", self._on_edit_search_engine_clicked, se)
+            edit_button.connect("clicked", self._on_edit_search_engine_clicked, engine)
             row.add_suffix(edit_button)
 
-            delete_button = Gtk.Button.new_from_icon_name("user-trash-symbolic")
-            delete_button.set_tooltip_text("Delete")
-            delete_button.connect("clicked", self._on_delete_search_engine_clicked, se)
-            row.add_suffix(delete_button)
+            # Don't allow deletion of built-in engines or if it's the only engine
+            if not engine.get("is_builtin", False) and len(engines) > 1:
+                delete_button = Gtk.Button.new_from_icon_name("user-trash-symbolic")
+                delete_button.set_tooltip_text("Delete")
+                delete_button.connect("clicked", self._on_delete_search_engine_clicked, engine)
+                row.add_suffix(delete_button)
 
             self.search_engine_listbox.append(row)
 
-    def _on_default_search_engine_selected(self, dropdown, pspec):
-        selected_item = dropdown.get_selected_item()
-        if selected_item:
-            self.settings.set_string("selected-search-engine-name", selected_item.get_string())
-
-    def _on_search_engines_changed(self, settings, key):
-        self._populate_search_engine_dropdown()
-        self._populate_search_engine_listbox()
+    def _on_default_search_engine_selected(self, combo_row, pspec):
+        selected_index = combo_row.get_selected()
+        if selected_index >= 0:
+            engines = self.search_engine_manager.get_all_engines()
+            if selected_index < len(engines):
+                engine = engines[selected_index]
+                self.search_engine_manager.set_default_engine(engine["id"])
 
     def _on_add_search_engine_clicked(self, button):
         from .search_engine_dialog import SearchEngineDialog
@@ -387,51 +338,64 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
         dialog.connect("search-engine-configured", self._on_search_engine_configured_from_dialog)
         dialog.present()
 
-    def _on_search_engine_configured_from_dialog(self, dialog, name, url, is_new):
-        search_engines = self.settings.get_value("search-engines").unpack()
-        
+    def _on_search_engine_configured_from_dialog(self, dialog, engine_data, is_new):
         if is_new:
-            if any(se['name'] == name for se in search_engines):
-                print(f"Search engine '{name}' already exists. Cannot add duplicate.")
-                self.get_application().get_window_by_id(1).toast_overlay.add_toast(Adw.Toast.new(f"Search engine '{name}' already exists."))
-                return
-            new_engine = {"name": name, "url": url}
-            search_engines.append(new_engine)
-            print(f"Added search engine: {name}")
-            self.get_application().get_window_by_id(1).toast_overlay.add_toast(Adw.Toast.new(f"Added search engine: {name}"))
-        else:
-            original_name = dialog.search_engine_data["name"]
-            found = False
-            for se in search_engines:
-                if se['name'] == original_name:
-                    se['name'] = name
-                    se['url'] = url
-                    found = True
-                    break
-            if found:
-                print(f"Updated search engine: {name}")
-                self.get_application().get_window_by_id(1).toast_overlay.add_toast(Adw.Toast.new(f"Updated search engine: {name}"))
+            success = self.search_engine_manager.add_engine(
+                name=engine_data["name"],
+                url=engine_data["url"],
+                keyword=engine_data["keyword"],
+                favicon_url=engine_data["favicon_url"],
+                suggestions_url=engine_data["suggestions_url"],
+                is_default=engine_data["is_default"]
+            )
+            if success:
+                print(f"Added search engine: {engine_data['name']}")
+                if hasattr(self.get_application(), 'get_window_by_id') and self.get_application().get_window_by_id(1) and hasattr(self.get_application().get_window_by_id(1), 'toast_overlay'):
+                    self.get_application().get_window_by_id(1).toast_overlay.add_toast(Adw.Toast.new(f"Added search engine: {engine_data['name']}"))
             else:
-                print(f"Error: Could not find search engine '{original_name}' to edit.")
-                self.get_application().get_window_by_id(1).toast_overlay.add_toast(Adw.Toast.new(f"Error updating search engine."))
+                print(f"Failed to add search engine: {engine_data['name']}")
+                if hasattr(self.get_application(), 'get_window_by_id') and self.get_application().get_window_by_id(1) and hasattr(self.get_application().get_window_by_id(1), 'toast_overlay'):
+                    self.get_application().get_window_by_id(1).toast_overlay.add_toast(Adw.Toast.new(f"Failed to add search engine: {engine_data['name']}"))
+        else:
+            # For editing, we need the engine ID from the original data
+            original_engine_id = dialog.search_engine_data["id"]
+            success = self.search_engine_manager.update_engine(
+                engine_id=original_engine_id,
+                name=engine_data["name"],
+                url=engine_data["url"],
+                keyword=engine_data["keyword"],
+                favicon_url=engine_data["favicon_url"],
+                suggestions_url=engine_data["suggestions_url"],
+                is_default=engine_data["is_default"]
+            )
+            if success:
+                print(f"Updated search engine: {engine_data['name']}")
+                if hasattr(self.get_application(), 'get_window_by_id') and self.get_application().get_window_by_id(1) and hasattr(self.get_application().get_window_by_id(1), 'toast_overlay'):
+                    self.get_application().get_window_by_id(1).toast_overlay.add_toast(Adw.Toast.new(f"Updated search engine: {engine_data['name']}"))
+            else:
+                print(f"Failed to update search engine: {engine_data['name']}")
+                if hasattr(self.get_application(), 'get_window_by_id') and self.get_application().get_window_by_id(1) and hasattr(self.get_application().get_window_by_id(1), 'toast_overlay'):
+                    self.get_application().get_window_by_id(1).toast_overlay.add_toast(Adw.Toast.new(f"Failed to update search engine: {engine_data['name']}"))
         
-        self.settings.set_value("search-engines", GLib.Variant("a{sv}", search_engines))
+        # Refresh the UI
+        self._populate_search_engine_dropdown()
+        self._populate_search_engine_listbox()
 
     def _on_delete_search_engine_clicked(self, button, engine_data):
-        search_engines = self.settings.get_value("search-engines").unpack()
-        
-        new_engines = [se for se in search_engines if se["name"] != engine_data["name"]]
-        
-        if self.settings.get_string("selected-search-engine-name") == engine_data["name"]:
-            if new_engines:
-                self.settings.set_string("selected-search-engine-name", new_engines[0]["name"])
-            else:
-                self.settings.set_string("selected-search-engine-name", "")
-        self.settings.set_value("search-engines", GLib.Variant("a{sv}", new_engines))
-        print(f"Deleted search engine: {engine_data['name']}")
-        self.get_application().get_window_by_id(1).toast_overlay.add_toast(Adw.Toast.new(f"Deleted search engine: {engine_data['name']}"))
+        success = self.search_engine_manager.remove_engine(engine_data["id"])
+        if success:
+            print(f"Deleted search engine: {engine_data['name']}")
+            if hasattr(self.get_application(), 'get_window_by_id') and self.get_application().get_window_by_id(1) and hasattr(self.get_application().get_window_by_id(1), 'toast_overlay'):
+                self.get_application().get_window_by_id(1).toast_overlay.add_toast(Adw.Toast.new(f"Deleted search engine: {engine_data['name']}"))
+            
+            # Refresh the UI
+            self._populate_search_engine_dropdown()
+            self._populate_search_engine_listbox()
+        else:
+            print(f"Failed to delete search engine: {engine_data['name']}")
+            if hasattr(self.get_application(), 'get_window_by_id') and self.get_application().get_window_by_id(1) and hasattr(self.get_application().get_window_by_id(1), 'toast_overlay'):
+                self.get_application().get_window_by_id(1).toast_overlay.add_toast(Adw.Toast.new(f"Failed to delete search engine: {engine_data['name']}"))
 
-    # --- Tier 9: Appearance Settings Handlers ---
     def _on_override_system_theme_changed(self, row, active):
         if active:
             theme_variant_str = self.settings.get_string("app-theme-variant")
@@ -441,11 +405,41 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
         else:
             self.get_application().get_style_manager().set_color_scheme(Adw.ColorScheme.DEFAULT)
 
-    def _on_app_theme_variant_changed(self, dropdown, pspec):
+    def _on_app_theme_variant_changed(self, combo_row, pspec):
+        selected_index = combo_row.get_selected()
+        if selected_index == 0:
+            theme_variant_str = "auto"
+        elif selected_index == 1:
+            theme_variant_str = "light"
+        elif selected_index == 2:
+            theme_variant_str = "dark"
+        else:
+            theme_variant_str = "auto"  # Default
+            
+        # Save to settings
+        self.settings.set_string("app-theme-variant", theme_variant_str)
+        
         if self.settings.get_boolean("override-system-theme"):
-            selected_item = dropdown.get_selected_item()
-            if selected_item:
-                theme_variant_str = selected_item.get_string()
-                self.get_application().get_style_manager().set_color_scheme(
-                    Adw.ColorScheme.PREFER_DARK if theme_variant_str == "dark" else Adw.ColorScheme.DEFAULT
-                )
+            if theme_variant_str == "dark":
+                self.get_application().get_style_manager().set_color_scheme(Adw.ColorScheme.PREFER_DARK)
+            elif theme_variant_str == "light":
+                self.get_application().get_style_manager().set_color_scheme(Adw.ColorScheme.PREFER_LIGHT)
+            else:  # auto
+                self.get_application().get_style_manager().set_color_scheme(Adw.ColorScheme.DEFAULT)
+
+    def _on_font_changed(self, font_button, pspec):
+        """Handle font change from font dialog button."""
+        font_desc = font_button.get_font_desc()
+        if font_desc:
+            font_family = font_desc.get_family()
+            font_size = font_desc.get_size() // 1024  # Pango size is in 1024ths of a point
+            
+            if font_family:
+                self.settings.set_string("font-family", font_family)
+                print(f"Font family changed to: {font_family}")
+            
+            if font_size > 0:
+                self.settings.set_int("default-font-size", font_size)
+                print(f"Font size changed to: {font_size}")
+            
+            print(f"Complete font changed to: {font_desc.to_string()}")

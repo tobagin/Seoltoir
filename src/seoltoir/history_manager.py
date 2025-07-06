@@ -15,8 +15,12 @@ class HistoryManager(Gtk.Box):
         builder.add_from_file(UILoader.get_ui_file_path('history-manager.ui'))
         box = builder.get_object('history_manager')
         super().__init__(orientation=box.get_orientation(), spacing=box.get_spacing(), *args, **kwargs)
-        for child in box.get_children():
+        child = box.get_first_child()
+        while child:
+            next_child = child.get_next_sibling()
+            box.remove(child)
             self.append(child)
+            child = next_child
 
         self.db_manager = db_manager
 
@@ -35,8 +39,11 @@ class HistoryManager(Gtk.Box):
 
     def load_history(self):
         """Loads history entries from the database and populates the listbox."""
-        for child in self.history_listbox.get_children():
+        child = self.history_listbox.get_first_child()
+        while child:
+            next_child = child.get_next_sibling()
             self.history_listbox.remove(child)
+            child = next_child
 
         history_data = self.db_manager.get_history()
         for url, title, last_visit_str in history_data:

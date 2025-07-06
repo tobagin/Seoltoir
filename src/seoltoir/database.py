@@ -48,6 +48,33 @@ class DatabaseManager:
             )
         """)
 
+        # Zoom levels table for per-site zoom persistence
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS zoom_levels (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                domain TEXT NOT NULL UNIQUE,
+                zoom_level REAL NOT NULL DEFAULT 1.0,
+                last_updated TIMESTAMP NOT NULL
+            )
+        """)
+
+        # Search engines table for search engine management
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS search_engines (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                url TEXT NOT NULL,
+                keyword TEXT UNIQUE,
+                favicon_url TEXT,
+                suggestions_url TEXT,
+                is_default INTEGER DEFAULT 0,
+                is_builtin INTEGER DEFAULT 0,
+                position INTEGER DEFAULT 0,
+                created_date TIMESTAMP NOT NULL,
+                last_used TIMESTAMP
+            )
+        """)
+
         conn.commit()
         conn.close()
 
@@ -181,3 +208,202 @@ class DatabaseManager:
         conn.close()
         debug_print(f"Loaded session with {len(session_entries)} tabs.")
         return session_entries
+
+    def get_zoom_level(self, domain: str) -> float:
+        """Get the zoom level for a specific domain."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT zoom_level FROM zoom_levels WHERE domain = ?", (domain,))
+        result = cursor.fetchone()
+        conn.close()
+        return result[0] if result else 1.0  # Default zoom level is 1.0 (100%)
+
+    def set_zoom_level(self, domain: str, zoom_level: float):
+        """Set the zoom level for a specific domain."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        now = datetime.now().isoformat()
+        try:
+            cursor.execute("""
+                INSERT INTO zoom_levels (domain, zoom_level, last_updated)
+                VALUES (?, ?, ?)
+            """, (domain, zoom_level, now))
+        except sqlite3.IntegrityError:
+            cursor.execute("""
+                UPDATE zoom_levels
+                SET zoom_level = ?, last_updated = ?
+                WHERE domain = ?
+            """, (zoom_level, now, domain))
+        conn.commit()
+        conn.close()
+        debug_print(f"Set zoom level for {domain} to {zoom_level}")
+
+    def remove_zoom_level(self, domain: str):
+        """Remove the zoom level setting for a specific domain."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM zoom_levels WHERE domain = ?", (domain,))
+        conn.commit()
+        conn.close()
+        debug_print(f"Removed zoom level for {domain}")
+
+    def get_all_zoom_levels(self) -> list[tuple]:
+        """Get all zoom level settings."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT domain, zoom_level, last_updated FROM zoom_levels ORDER BY domain ASC")
+        zoom_levels = cursor.fetchall()
+        conn.close()
+        return zoom_levels
+
+    def add_search_engine(self, name: str, url: str, keyword: str = None, favicon_url: str = None, 
+                         suggestions_url: str = None, is_default: bool = False, is_builtin: bool = False) -> bool:
+        """Add a new search engine."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        now = datetime.now().isoformat()
+        
+        # Get next position
+        cursor.execute("SELECT MAX(position) FROM search_engines")
+        max_position = cursor.fetchone()[0]
+        position = (max_position + 1) if max_position is not None else 0
+        
+        try:
+            cursor.execute("""
+                INSERT INTO search_engines (name, url, keyword, favicon_url, suggestions_url, 
+                                           is_default, is_builtin, position, created_date)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (name, url, keyword, favicon_url, suggestions_url, 
+                  1 if is_default else 0, 1 if is_builtin else 0, position, now))
+            
+            # If this is being set as default, unset all other defaults
+            if is_default:
+                cursor.execute("UPDATE search_engines SET is_default = 0 WHERE name != ?", (name,))
+            
+            conn.commit()
+            conn.close()
+            return True
+        except sqlite3.IntegrityError:
+            debug_print(f"Search engine {name} already exists or keyword {keyword} is taken.")
+            conn.close()
+            return False
+
+    def update_search_engine(self, engine_id: int, name: str, url: str, keyword: str = None, 
+                           favicon_url: str = None, suggestions_url: str = None, is_default: bool = False) -> bool:
+        """Update an existing search engine."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                UPDATE search_engines 
+                SET name = ?, url = ?, keyword = ?, favicon_url = ?, suggestions_url = ?, is_default = ?
+                WHERE id = ?
+            """, (name, url, keyword, favicon_url, suggestions_url, 1 if is_default else 0, engine_id))
+            
+            # If this is being set as default, unset all other defaults
+            if is_default:
+                cursor.execute("UPDATE search_engines SET is_default = 0 WHERE id != ?", (engine_id,))
+            
+            conn.commit()
+            conn.close()
+            return True
+        except sqlite3.IntegrityError:
+            debug_print(f"Search engine name {name} already exists or keyword {keyword} is taken.")
+            conn.close()
+            return False
+
+    def remove_search_engine(self, engine_id: int):
+        """Remove a search engine."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM search_engines WHERE id = ?", (engine_id,))
+        conn.commit()
+        conn.close()
+
+    def get_search_engines(self) -> list[tuple]:
+        """Get all search engines ordered by position."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, name, url, keyword, favicon_url, suggestions_url, is_default, is_builtin, position, created_date, last_used
+            FROM search_engines 
+            ORDER BY position ASC
+        """)
+        engines = cursor.fetchall()
+        conn.close()
+        return engines
+
+    def get_search_engine_by_id(self, engine_id: int) -> tuple:
+        """Get a specific search engine by ID."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, name, url, keyword, favicon_url, suggestions_url, is_default, is_builtin, position, created_date, last_used
+            FROM search_engines 
+            WHERE id = ?
+        """, (engine_id,))
+        result = cursor.fetchone()
+        conn.close()
+        return result
+
+    def get_search_engine_by_keyword(self, keyword: str) -> tuple:
+        """Get a search engine by keyword."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, name, url, keyword, favicon_url, suggestions_url, is_default, is_builtin, position, created_date, last_used
+            FROM search_engines 
+            WHERE keyword = ?
+        """, (keyword,))
+        result = cursor.fetchone()
+        conn.close()
+        return result
+
+    def get_default_search_engine(self) -> tuple:
+        """Get the default search engine."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, name, url, keyword, favicon_url, suggestions_url, is_default, is_builtin, position, created_date, last_used
+            FROM search_engines 
+            WHERE is_default = 1
+        """)
+        result = cursor.fetchone()
+        conn.close()
+        return result
+
+    def set_default_search_engine(self, engine_id: int):
+        """Set a search engine as default."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE search_engines SET is_default = 0")  # Unset all defaults
+        cursor.execute("UPDATE search_engines SET is_default = 1 WHERE id = ?", (engine_id,))
+        conn.commit()
+        conn.close()
+
+    def update_search_engine_last_used(self, engine_id: int):
+        """Update the last used timestamp for a search engine."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        now = datetime.now().isoformat()
+        cursor.execute("UPDATE search_engines SET last_used = ? WHERE id = ?", (now, engine_id))
+        conn.commit()
+        conn.close()
+
+    def reorder_search_engines(self, engine_positions: list[tuple]):
+        """Reorder search engines by updating their positions."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        for engine_id, position in engine_positions:
+            cursor.execute("UPDATE search_engines SET position = ? WHERE id = ?", (position, engine_id))
+        conn.commit()
+        conn.close()
+
+    def search_engines_exist(self) -> bool:
+        """Check if any search engines exist in the database."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM search_engines")
+        count = cursor.fetchone()[0]
+        conn.close()
+        return count > 0

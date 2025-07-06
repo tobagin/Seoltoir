@@ -55,9 +55,7 @@ class ContainerManager:
                     context = WebKit.WebContext.new_ephemeral()
                 else:
                     context = WebKit.WebContext.new()
-                cookie_manager = network_session.get_cookie_manager()
-                default_cookie_path = os.path.join(GLib.get_user_data_dir(), self.app_id, "cookies.txt")
-                cookie_manager.set_persistent_storage(default_cookie_path, WebKit.CookiePersistentStorage.TEXT)
+                # Don't set persistent storage for ephemeral contexts
             else:
                 # Custom container: Attempt to create a persistent WebsiteDataManager using new_with_paths.
                 # If new_with_paths is missing, we fall back to ephemeral.
@@ -89,6 +87,7 @@ class ContainerManager:
                     else:
                         context = WebKit.WebContext.new()
                     print(f"Created new ephemeral container '{container_id}' (persistent path not used).")
+                    # Don't set persistent storage for ephemeral contexts
             
             # Store instances for later access (e.g., clearing data, reconfiguring)
             self.container_network_sessions[container_id] = network_session
