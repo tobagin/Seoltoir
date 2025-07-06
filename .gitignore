@@ -59,4 +59,8 @@ site/           # The generated site directory
 dist/
 build/
 
-.claude
+# Claude Code and project management
+.claude/
+.PRPs/
+CLAUDE.md
+INITIAL.md
