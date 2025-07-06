@@ -62,5 +62,7 @@ build/
 # Claude Code and project management
 .claude/
 .PRPs/
+.PRPs/templates/
+.PRPs/*.md
 CLAUDE.md
 INITIAL.md
