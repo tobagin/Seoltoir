@@ -289,7 +289,6 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
             # Add a placeholder row if no engines
             placeholder_row = Adw.ActionRow()
             placeholder_row.set_title("No search engines configured.")
-            placeholder_row.set_name("search_engine_placeholder")
             self.search_engine_management_group.add(placeholder_row)
             return
 
@@ -300,13 +299,14 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
     def _clear_search_engine_rows(self):
         """Remove all dynamically added search engine rows."""
         # Get all children and remove those that are search engine rows
+        # Since we know the structure, remove everything except the combo and button
         child = self.search_engine_management_group.get_first_child()
         rows_to_remove = []
         
         while child:
-            # Check if this is a search engine row (has our naming convention)
-            if hasattr(child, 'get_name') and child.get_name() and \
-               (child.get_name().startswith("search_engine_") or child.get_name() == "search_engine_placeholder"):
+            # Skip the combo row and add button, remove everything else
+            if (child != self.default_search_engine_combo and 
+                child != self.add_search_engine_button):
                 rows_to_remove.append(child)
             child = child.get_next_sibling()
         
@@ -317,7 +317,6 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
         """Add a search engine as an AdwEntryRow."""
         # Create the entry row
         entry_row = Adw.EntryRow()
-        entry_row.set_name(f"search_engine_{engine['id']}")
         
         # Set title and text
         title = engine["name"]
