@@ -333,9 +333,9 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
         # Connect to text changes to update the engine
         entry_row.connect("notify::text", self._on_search_engine_url_changed, engine)
 
-        # Add delete button for non-builtin engines
+        # Add delete button for non-default engines (allowing users to remove any except the current default)
         engines = self.search_engine_manager.get_all_engines()
-        if not engine.get("is_builtin", False) and len(engines) > 1:
+        if not engine.get("is_default", False) and len(engines) > 1:
             delete_button = Gtk.Button.new_from_icon_name("user-trash-symbolic")
             delete_button.set_tooltip_text("Delete")
             delete_button.set_valign(Gtk.Align.CENTER)
@@ -372,8 +372,9 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
             if selected_index < len(engines):
                 engine = engines[selected_index]
                 self.search_engine_manager.set_default_engine(engine["id"])
-                # Refresh the list to update "(Default)" indicators
+                # Refresh both the list and dropdown to update "(Default)" indicators
                 self._populate_search_engine_listbox()
+                self._populate_search_engine_dropdown()
 
     def _on_add_search_engine_clicked(self, button):
         from .search_engine_dialog import SearchEngineDialog
@@ -415,7 +416,8 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
                 keyword=engine_data["keyword"],
                 favicon_url=engine_data["favicon_url"],
                 suggestions_url=engine_data["suggestions_url"],
-                is_default=engine_data["is_default"]
+                is_default=engine_data["is_default"],
+                is_builtin=dialog.search_engine_data.get("is_builtin", False)
             )
             if success:
                 print(f"Updated search engine: {engine_data['name']}")

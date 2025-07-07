@@ -170,10 +170,24 @@ class SearchEngineManager:
         debug_print(f"Added {len(self.DEFAULT_SEARCH_ENGINES)} default search engines")
     
     def _ensure_all_default_engines_exist(self):
-        """Ensure all default engines exist in the database. Add missing ones and fix existing ones."""
+        """Ensure all default engines exist in the database. Add missing ones, fix existing ones, and remove obsolete ones."""
+        existing_engines = self.get_all_engines()
+        existing_names = {engine["name"]: engine for engine in existing_engines}
+        default_names = {engine["name"] for engine in self.DEFAULT_SEARCH_ENGINES}
+        
+        # Remove engines that are no longer in our default list (obsolete engines)
+        obsolete_engines = ["Whoogle", "Swisscows", "Metager"]  # Specific engines to remove
+        for engine_name in obsolete_engines:
+            if engine_name in existing_names:
+                engine_to_remove = existing_names[engine_name]
+                debug_print(f"Removing obsolete search engine: {engine_name}")
+                self.db.remove_search_engine(engine_to_remove["id"])
+        
+        # Refresh existing engines after removal
         existing_engines = self.get_all_engines()
         existing_names = {engine["name"]: engine for engine in existing_engines}
         
+        # Add missing engines and update existing ones
         for default_engine in self.DEFAULT_SEARCH_ENGINES:
             if default_engine["name"] not in existing_names:
                 debug_print(f"Adding missing default search engine: {default_engine['name']}")
