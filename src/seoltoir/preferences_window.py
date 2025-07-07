@@ -18,7 +18,7 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
         
         self.set_application(application)
         self.set_title("Seoltóir Preferences")
-        self.set_default_size(600, 400)
+        self.set_default_size(600, 800)
         
         # Get all the widgets from the UI file and add them to this window
         self._get_ui_widgets()
@@ -332,13 +332,6 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
         
         # Connect to text changes to update the engine
         entry_row.connect("notify::text", self._on_search_engine_url_changed, engine)
-        
-        # Add edit details button (for editing name, keyword, etc.)
-        edit_button = Gtk.Button.new_from_icon_name("document-edit-symbolic")
-        edit_button.set_tooltip_text("Edit Details")
-        edit_button.set_valign(Gtk.Align.CENTER)
-        edit_button.connect("clicked", self._on_edit_search_engine_clicked, engine)
-        entry_row.add_suffix(edit_button)
 
         # Add delete button for non-builtin engines
         engines = self.search_engine_manager.get_all_engines()
@@ -364,7 +357,8 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
                 keyword=engine.get("keyword"),
                 favicon_url=engine.get("favicon_url"),
                 suggestions_url=engine.get("suggestions_url"),
-                is_default=engine.get("is_default", False)
+                is_default=engine.get("is_default", False),
+                is_builtin=engine.get("is_builtin", False)
             )
             if success:
                 # Update the engine dict for future reference
@@ -378,6 +372,8 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
             if selected_index < len(engines):
                 engine = engines[selected_index]
                 self.search_engine_manager.set_default_engine(engine["id"])
+                # Refresh the list to update "(Default)" indicators
+                self._populate_search_engine_listbox()
 
     def _on_add_search_engine_clicked(self, button):
         from .search_engine_dialog import SearchEngineDialog

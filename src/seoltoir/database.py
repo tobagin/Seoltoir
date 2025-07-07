@@ -289,16 +289,16 @@ class DatabaseManager:
             return False
 
     def update_search_engine(self, engine_id: int, name: str, url: str, keyword: str = None, 
-                           favicon_url: str = None, suggestions_url: str = None, is_default: bool = False) -> bool:
+                           favicon_url: str = None, suggestions_url: str = None, is_default: bool = False, is_builtin: bool = False) -> bool:
         """Update an existing search engine."""
         conn = self._get_connection()
         cursor = conn.cursor()
         try:
             cursor.execute("""
                 UPDATE search_engines 
-                SET name = ?, url = ?, keyword = ?, favicon_url = ?, suggestions_url = ?, is_default = ?
+                SET name = ?, url = ?, keyword = ?, favicon_url = ?, suggestions_url = ?, is_default = ?, is_builtin = ?
                 WHERE id = ?
-            """, (name, url, keyword, favicon_url, suggestions_url, 1 if is_default else 0, engine_id))
+            """, (name, url, keyword, favicon_url, suggestions_url, 1 if is_default else 0, 1 if is_builtin else 0, engine_id))
             
             # If this is being set as default, unset all other defaults
             if is_default:

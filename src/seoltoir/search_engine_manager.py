@@ -91,38 +91,11 @@ class SearchEngineManager:
             "is_builtin": True
         },
         {
-            "name": "Swisscows",
-            "url": "https://swisscows.com/web?query=%s",
-            "keyword": "swiss",
-            "favicon_url": "https://swisscows.com/favicon.ico",
-            "suggestions_url": None,
-            "is_default": False,
-            "is_builtin": True
-        },
-        {
             "name": "Searx.org",
             "url": "https://searx.org/search?q=%s",
             "keyword": "searx",
             "favicon_url": "https://searx.org/favicon.ico",
             "suggestions_url": "https://searx.org/autocompleter?q=%s",
-            "is_default": False,
-            "is_builtin": True
-        },
-        {
-            "name": "Whoogle",
-            "url": "https://search.whoogle.io/search?q=%s",
-            "keyword": "whoogle",
-            "favicon_url": "https://search.whoogle.io/favicon.ico",
-            "suggestions_url": None,
-            "is_default": False,
-            "is_builtin": True
-        },
-        {
-            "name": "Metager",
-            "url": "https://metager.org/meta/meta.ger3?eingabe=%s",
-            "keyword": "meta",
-            "favicon_url": "https://metager.org/favicon.ico",
-            "suggestions_url": None,
             "is_default": False,
             "is_builtin": True
         },
@@ -197,9 +170,9 @@ class SearchEngineManager:
         debug_print(f"Added {len(self.DEFAULT_SEARCH_ENGINES)} default search engines")
     
     def _ensure_all_default_engines_exist(self):
-        """Ensure all default engines exist in the database. Add missing ones."""
+        """Ensure all default engines exist in the database. Add missing ones and fix existing ones."""
         existing_engines = self.get_all_engines()
-        existing_names = {engine["name"] for engine in existing_engines}
+        existing_names = {engine["name"]: engine for engine in existing_engines}
         
         for default_engine in self.DEFAULT_SEARCH_ENGINES:
             if default_engine["name"] not in existing_names:
@@ -213,6 +186,21 @@ class SearchEngineManager:
                     is_default=default_engine["is_default"],
                     is_builtin=default_engine["is_builtin"]
                 )
+            else:
+                # Check if existing engine needs to be updated to mark as builtin
+                existing_engine = existing_names[default_engine["name"]]
+                if not existing_engine.get("is_builtin", False):
+                    debug_print(f"Updating {default_engine['name']} to mark as builtin")
+                    self.db.update_search_engine(
+                        engine_id=existing_engine["id"],
+                        name=existing_engine["name"],
+                        url=existing_engine["url"],
+                        keyword=existing_engine.get("keyword"),
+                        favicon_url=existing_engine.get("favicon_url"),
+                        suggestions_url=existing_engine.get("suggestions_url"),
+                        is_default=existing_engine.get("is_default", False),
+                        is_builtin=True  # Mark as builtin
+                    )
     
     def get_all_engines(self) -> List[Dict[str, Any]]:
         """Get all search engines as a list of dictionaries."""
@@ -243,11 +231,11 @@ class SearchEngineManager:
         )
     
     def update_engine(self, engine_id: int, name: str, url: str, keyword: str = None, 
-                     favicon_url: str = None, suggestions_url: str = None, is_default: bool = False) -> bool:
+                     favicon_url: str = None, suggestions_url: str = None, is_default: bool = False, is_builtin: bool = False) -> bool:
         """Update an existing search engine."""
         return self.db.update_search_engine(
             engine_id=engine_id, name=name, url=url, keyword=keyword,
-            favicon_url=favicon_url, suggestions_url=suggestions_url, is_default=is_default
+            favicon_url=favicon_url, suggestions_url=suggestions_url, is_default=is_default, is_builtin=is_builtin
         )
     
     def remove_engine(self, engine_id: int) -> bool:
