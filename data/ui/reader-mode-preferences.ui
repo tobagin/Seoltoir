@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <template class="ReaderModePreferencesPopover" parent="GtkPopover">
+    <property name="position">bottom</property>
+    <property name="autohide">true</property>
+    <property name="has-arrow">true</property>
+    <child>
+      <object class="GtkBox">
+        <property name="orientation">vertical</property>
+        <property name="spacing">12</property>
+        <property name="margin-top">12</property>
+        <property name="margin-bottom">12</property>
+        <property name="margin-start">12</property>
+        <property name="margin-end">12</property>
+        
+        <!-- Header -->
+        <child>
+          <object class="GtkLabel">
+            <property name="label">Reader Mode Settings</property>
+            <property name="halign">start</property>
+            <style>
+              <class name="heading"/>
+            </style>
+          </object>
+        </child>
+        
+        <!-- Theme Selection -->
+        <child>
+          <object class="GtkBox">
+            <property name="orientation">horizontal</property>
+            <property name="spacing">12</property>
+            <property name="homogeneous">true</property>
+            
+            <child>
+              <object class="GtkToggleButton" id="theme_light_button">
+                <property name="label">Light</property>
+                <property name="active">true</property>
+                <property name="group">theme_dark_button</property>
+                <style>
+                  <class name="pill"/>
+                </style>
+              </object>
+            </child>
+            
+            <child>
+              <object class="GtkToggleButton" id="theme_dark_button">
+                <property name="label">Dark</property>
+                <property name="group">theme_sepia_button</property>
+                <style>
+                  <class name="pill"/>
+                </style>
+              </object>
+            </child>
+            
+            <child>
+              <object class="GtkToggleButton" id="theme_sepia_button">
+                <property name="label">Sepia</property>
+                <property name="group">theme_light_button</property>
+                <style>
+                  <class name="pill"/>
+                </style>
+              </object>
+            </child>
+          </object>
+        </child>
+        
+        <!-- Font Size -->
+        <child>
+          <object class="GtkBox">
+            <property name="orientation">vertical</property>
+            <property name="spacing">6</property>
+            
+            <child>
+              <object class="GtkLabel">
+                <property name="label">Font Size</property>
+                <property name="halign">start</property>
+                <style>
+                  <class name="caption"/>
+                </style>
+              </object>
+            </child>
+            
+            <child>
+              <object class="GtkScale" id="font_size_scale">
+                <property name="orientation">horizontal</property>
+                <property name="adjustment">
+                  <object class="GtkAdjustment" id="font_size_adjustment">
+                    <property name="lower">12</property>
+                    <property name="upper">24</property>
+                    <property name="step-increment">1</property>
+                    <property name="page-increment">2</property>
+                    <property name="value">16</property>
+                  </object>
+                </property>
+                <property name="digits">0</property>
+                <property name="draw-value">true</property>
+                <property name="value-pos">right</property>
+                <property name="hexpand">true</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        
+        <!-- Font Family -->
+        <child>
+          <object class="GtkBox">
+            <property name="orientation">vertical</property>
+            <property name="spacing">6</property>
+            
+            <child>
+              <object class="GtkLabel">
+                <property name="label">Font Family</property>
+                <property name="halign">start</property>
+                <style>
+                  <class name="caption"/>
+                </style>
+              </object>
+            </child>
+            
+            <child>
+              <object class="GtkDropDown" id="font_family_dropdown">
+                <property name="model">
+                  <object class="GtkStringList" id="font_family_list">
+                    <items>
+                      <item>Georgia, serif</item>
+                      <item>Times New Roman, serif</item>
+                      <item>Arial, sans-serif</item>
+                      <item>Helvetica, sans-serif</item>
+                      <item>Verdana, sans-serif</item>
+                      <item>Courier New, monospace</item>
+                    </items>
+                  </object>
+                </property>
+                <property name="selected">0</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        
+        <!-- Line Height -->
+        <child>
+          <object class="GtkBox">
+            <property name="orientation">vertical</property>
+            <property name="spacing">6</property>
+            
+            <child>
+              <object class="GtkLabel">
+                <property name="label">Line Height</property>
+                <property name="halign">start</property>
+                <style>
+                  <class name="caption"/>
+                </style>
+              </object>
+            </child>
+            
+            <child>
+              <object class="GtkScale" id="line_height_scale">
+                <property name="orientation">horizontal</property>
+                <property name="adjustment">
+                  <object class="GtkAdjustment" id="line_height_adjustment">
+                    <property name="lower">1.0</property>
+                    <property name="upper">2.5</property>
+                    <property name="step-increment">0.1</property>
+                    <property name="page-increment">0.2</property>
+                    <property name="value">1.6</property>
+                  </object>
+                </property>
+                <property name="digits">1</property>
+                <property name="draw-value">true</property>
+                <property name="value-pos">right</property>
+                <property name="hexpand">true</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        
+        <!-- Column Width -->
+        <child>
+          <object class="GtkBox">
+            <property name="orientation">vertical</property>
+            <property name="spacing">6</property>
+            
+            <child>
+              <object class="GtkLabel">
+                <property name="label">Column Width</property>
+                <property name="halign">start</property>
+                <style>
+                  <class name="caption"/>
+                </style>
+              </object>
+            </child>
+            
+            <child>
+              <object class="GtkScale" id="column_width_scale">
+                <property name="orientation">horizontal</property>
+                <property name="adjustment">
+                  <object class="GtkAdjustment" id="column_width_adjustment">
+                    <property name="lower">600</property>
+                    <property name="upper">1200</property>
+                    <property name="step-increment">50</property>
+                    <property name="page-increment">100</property>
+                    <property name="value">800</property>
+                  </object>
+                </property>
+                <property name="digits">0</property>
+                <property name="draw-value">true</property>
+                <property name="value-pos">right</property>
+                <property name="hexpand">true</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        
+        <!-- Separator -->
+        <child>
+          <object class="GtkSeparator">
+            <property name="orientation">horizontal</property>
+          </object>
+        </child>
+        
+        <!-- Options -->
+        <child>
+          <object class="GtkBox">
+            <property name="orientation">vertical</property>
+            <property name="spacing">6</property>
+            
+            <child>
+              <object class="GtkCheckButton" id="auto_enable_check">
+                <property name="label">Auto-enable for articles</property>
+                <property name="active">false</property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="GtkCheckButton" id="show_reading_time_check">
+                <property name="label">Show estimated reading time</property>
+                <property name="active">true</property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface>

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Reader Mode Test</title>
+</head>
+<body>
+    <h1>Test Article</h1>
+    <article>
+        <h2>This is a test article</h2>
+        <p>This is the first paragraph of the test article. It contains enough content to be detected by the reader mode algorithm.</p>
+        <p>This is the second paragraph with more content to make the article substantial enough for reader mode detection.</p>
+        <p>This is the third paragraph to ensure we have enough text content for the article extraction algorithm to work properly.</p>
+        <p>This is the fourth paragraph to provide even more content and make sure the reader mode works correctly on this test page.</p>
+    </article>
+    
+    <script>
+    // Test if the page can be detected as readable
+    console.log('Test page loaded');
+    console.log('Article elements:', document.querySelectorAll('article').length);
+    console.log('Paragraph count:', document.querySelectorAll('p').length);
+    console.log('Text length:', document.body.innerText.length);
+    </script>
+</body>
+</html>
