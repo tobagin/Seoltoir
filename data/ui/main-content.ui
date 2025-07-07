@@ -13,8 +13,7 @@
         <child>
           <object class="GtkHeaderBar" id="header_bar">
             <property name="title-widget">
-              <object class="GtkEntry" id="address_bar">
-                <property name="placeholder-text">Enter URL or search</property>
+              <object class="GtkBox" id="address_bar_container">
                 <property name="hexpand">true</property>
               </object>
             </property>
@@ -71,6 +70,33 @@
                 </style>
                 <property name="halign">end</property>
                 <property name="visible">false</property>
+              </object>
+            </child>
+            
+            <child type="end">
+              <object class="GtkBox">
+                <property name="orientation">horizontal</property>
+                <property name="spacing">0</property>
+                <style>
+                  <class name="linked"/>
+                </style>
+                
+                <child>
+                  <object class="GtkToggleButton" id="reader_mode_button">
+                    <property name="icon-name">document-edit-symbolic</property>
+                    <property name="tooltip-text">Toggle Reader Mode (Alt+R)</property>
+                    <property name="sensitive">false</property>
+                  </object>
+                </child>
+                
+                <child>
+                  <object class="GtkMenuButton" id="reader_mode_preferences_button">
+                    <property name="icon-name">preferences-other-symbolic</property>
+                    <property name="tooltip-text">Reader Mode Preferences</property>
+                    <property name="sensitive">false</property>
+                    <property name="direction">down</property>
+                  </object>
+                </child>
               </object>
             </child>
             
@@ -134,6 +160,17 @@
             </child>
             
             <child>
+              <object class="GtkLabel" id="find_match_counter">
+                <property name="label">0 of 0</property>
+                <style>
+                  <class name="caption"/>
+                </style>
+                <property name="margin-start">6</property>
+                <property name="margin-end">6</property>
+              </object>
+            </child>
+            
+            <child>
               <object class="GtkButton" id="find_prev_button">
                 <property name="icon-name">go-up-symbolic</property>
                 <property name="tooltip-text">Find previous</property>
@@ -144,6 +181,36 @@
               <object class="GtkButton" id="find_next_button">
                 <property name="icon-name">go-down-symbolic</property>
                 <property name="tooltip-text">Find next</property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="GtkSeparator">
+                <property name="orientation">vertical</property>
+                <property name="margin-start">6</property>
+                <property name="margin-end">6</property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="GtkToggleButton" id="find_case_sensitive_button">
+                <property name="icon-name">format-text-direction-ltr-symbolic</property>
+                <property name="tooltip-text">Match case</property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="GtkToggleButton" id="find_whole_word_button">
+                <property name="icon-name">edit-select-all-symbolic</property>
+                <property name="tooltip-text">Whole words only</property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="GtkSeparator">
+                <property name="orientation">vertical</property>
+                <property name="margin-start">6</property>
+                <property name="margin-end">6</property>
               </object>
             </child>
             

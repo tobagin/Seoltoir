@@ -188,5 +188,189 @@
       <description>Font family for web content</description>
     </key>
     
+    <!-- Notification settings -->
+    <key name="enable-notification-sounds" type="b">
+      <default>true</default>
+      <summary>Enable notification sounds</summary>
+      <description>Whether to play sounds for web notifications</description>
+    </key>
+    
+    <key name="respect-system-dnd" type="b">
+      <default>true</default>
+      <summary>Respect system Do Not Disturb</summary>
+      <description>Whether to honor system Do Not Disturb mode for notifications</description>
+    </key>
+    
+    <!-- Developer tools settings -->
+    <key name="enable-developer-tools" type="b">
+      <default>false</default>
+      <summary>Enable developer tools</summary>
+      <description>Whether to enable developer tools functionality</description>
+    </key>
+    
+    <key name="developer-tools-keyboard-shortcut" type="s">
+      <default>"F12"</default>
+      <summary>Developer tools keyboard shortcut</summary>
+      <description>Keyboard shortcut to toggle developer tools</description>
+    </key>
+    
+    <key name="enable-view-source" type="b">
+      <default>true</default>
+      <summary>Enable view source</summary>
+      <description>Whether to show view source option in context menu</description>
+    </key>
+    
+    <key name="developer-user-agents" type="as">
+      <default>["Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36", "Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1", "Mozilla/5.0 (iPad; CPU OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1", "Mozilla/5.0 (Android 11; Mobile; rv:89.0) Gecko/89.0 Firefox/89.0"]</default>
+      <summary>Developer user agents</summary>
+      <description>List of user agent strings for testing</description>
+    </key>
+    
+    <key name="enable-responsive-design-mode" type="b">
+      <default>false</default>
+      <summary>Enable responsive design mode</summary>
+      <description>Whether responsive design mode is currently active</description>
+    </key>
+    
+    <!-- Performance optimization settings -->
+    <key name="enable-tab-suspension" type="b">
+      <default>true</default>
+      <summary>Enable tab suspension</summary>
+      <description>Whether to suspend background tabs to save memory</description>
+    </key>
+    
+    <key name="tab-suspension-timeout" type="i">
+      <default>300</default>
+      <summary>Tab suspension timeout</summary>
+      <description>Time in seconds before background tabs are suspended</description>
+    </key>
+    
+    <key name="max-concurrent-tabs" type="i">
+      <default>20</default>
+      <summary>Maximum concurrent active tabs</summary>
+      <description>Maximum number of tabs that can be active simultaneously</description>
+    </key>
+    
+    <key name="enable-memory-pressure-handling" type="b">
+      <default>true</default>
+      <summary>Enable memory pressure handling</summary>
+      <description>Whether to automatically manage resources when memory is low</description>
+    </key>
+    
+    <key name="memory-pressure-threshold" type="i">
+      <default>80</default>
+      <summary>Memory pressure threshold</summary>
+      <description>Memory usage percentage that triggers optimization actions</description>
+    </key>
+    
+    <key name="enable-lazy-image-loading" type="b">
+      <default>true</default>
+      <summary>Enable lazy image loading</summary>
+      <description>Whether to defer loading of images until they are needed</description>
+    </key>
+    
+    <key name="lazy-loading-threshold" type="i">
+      <default>200</default>
+      <summary>Lazy loading threshold</summary>
+      <description>Distance in pixels from viewport when images start loading</description>
+    </key>
+    
+    <key name="cache-size-limit" type="i">
+      <default>500</default>
+      <summary>Cache size limit</summary>
+      <description>Maximum cache size in MB for web content</description>
+    </key>
+    
+    <key name="enable-cache-cleanup" type="b">
+      <default>true</default>
+      <summary>Enable automatic cache cleanup</summary>
+      <description>Whether to automatically clean up old cache data</description>
+    </key>
+    
+    <key name="enable-performance-monitoring" type="b">
+      <default>false</default>
+      <summary>Enable performance monitoring</summary>
+      <description>Whether to show performance monitoring UI</description>
+    </key>
+    
+    <key name="show-memory-usage-indicators" type="b">
+      <default>false</default>
+      <summary>Show memory usage indicators</summary>
+      <description>Whether to display memory usage in tab tooltips</description>
+    </key>
+    
+    <key name="enable-battery-optimization" type="b">
+      <default>true</default>
+      <summary>Enable battery optimization</summary>
+      <description>Whether to reduce performance when on battery power</description>
+    </key>
+    
+    <key name="enable-startup-optimization" type="b">
+      <default>true</default>
+      <summary>Enable startup optimization</summary>
+      <description>Whether to optimize browser startup performance</description>
+    </key>
+    
+    <key name="startup-tab-loading-mode" type="s">
+      <default>"lazy"</default>
+      <summary>Startup tab loading mode</summary>
+      <description>How to load tabs at startup: immediate, lazy, or on-demand</description>
+    </key>
+    
+    <!-- Reader mode settings -->
+    <key name="enable-reader-mode" type="b">
+      <default>true</default>
+      <summary>Enable reader mode</summary>
+      <description>Whether to enable reader mode functionality</description>
+    </key>
+    
+    <key name="reader-mode-font-size" type="i">
+      <default>18</default>
+      <summary>Reader mode font size</summary>
+      <description>Font size for reader mode content in pixels</description>
+    </key>
+    
+    <key name="reader-mode-theme" type="s">
+      <default>"light"</default>
+      <summary>Reader mode theme</summary>
+      <description>Theme for reader mode: light, dark, or sepia</description>
+    </key>
+    
+    <key name="reader-mode-font-family" type="s">
+      <default>"serif"</default>
+      <summary>Reader mode font family</summary>
+      <description>Font family for reader mode content</description>
+    </key>
+    
+    <key name="reader-mode-line-height" type="d">
+      <default>1.6</default>
+      <summary>Reader mode line height</summary>
+      <description>Line height multiplier for reader mode content</description>
+    </key>
+    
+    <key name="reader-mode-column-width" type="i">
+      <default>720</default>
+      <summary>Reader mode column width</summary>
+      <description>Maximum column width for reader mode content in pixels</description>
+    </key>
+    
+    <key name="reader-mode-auto-enable" type="b">
+      <default>false</default>
+      <summary>Auto-enable reader mode</summary>
+      <description>Whether to automatically enable reader mode for detected articles</description>
+    </key>
+    
+    <key name="reader-mode-show-estimated-time" type="b">
+      <default>true</default>
+      <summary>Show estimated reading time</summary>
+      <description>Whether to show estimated reading time in reader mode</description>
+    </key>
+    
+    <key name="reader-mode-site-preferences" type="as">
+      <default>[]</default>
+      <summary>Reader mode site preferences</summary>
+      <description>List of site-specific reader mode preferences in JSON format</description>
+    </key>
+    
   </schema>
 </schemalist>

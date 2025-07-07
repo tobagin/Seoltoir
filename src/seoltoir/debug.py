@@ -3,7 +3,7 @@ Debug utilities for Seoltoir web browser.
 """
 
 # Global debug flag
-DEBUG_MODE = True
+DEBUG_MODE = True  # Temporarily enabled for testing
 
 def debug_print(*args, **kwargs):
     """Print debug messages only if debug mode is enabled."""

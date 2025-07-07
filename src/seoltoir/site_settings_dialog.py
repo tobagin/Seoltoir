@@ -32,6 +32,7 @@ class SiteSettingsDialog(Adw.PreferencesWindow):
         
         # Get references to UI widgets
         self.js_row = self.builder.get_object('js_row')
+        self.notifications_row = self.builder.get_object('notifications_row')
         self.cookie_listbox = self.builder.get_object('cookie_listbox')
         self.delete_all_cookies_button = self.builder.get_object('delete_all_cookies_button')
         self.other_storage_listbox = self.builder.get_object('other_storage_listbox')
@@ -48,6 +49,11 @@ class SiteSettingsDialog(Adw.PreferencesWindow):
         self.js_row.set_model(js_model)
         self.js_row.set_selected(0) # Default to Allow
         
+        # Set up Notifications combo row
+        notifications_model = Gtk.StringList.new(["Default", "Allow", "Block"])
+        self.notifications_row.set_model(notifications_model)
+        self.notifications_row.set_selected(0) # Default to Default
+        
         # Connect button signals
         self.delete_all_cookies_button.connect("clicked", self._on_delete_all_cookies_clicked)
         self.delete_all_other_storage_button.connect("clicked", self._on_delete_all_other_storage_clicked)
@@ -57,8 +63,13 @@ class SiteSettingsDialog(Adw.PreferencesWindow):
         else:
             self.set_title("Site Settings")
 
+        self._load_notification_policy()
+        self._load_js_policy()
         self.load_cookies() # Load cookies for the current site
         self.load_other_site_data()
+        
+        # Connect signals
+        self.notifications_row.connect("notify::selected", self._on_notification_policy_changed)
 
     def _get_domain_from_uri(self, uri: str) -> str:
         try:
@@ -390,3 +401,67 @@ class SiteSettingsDialog(Adw.PreferencesWindow):
             size_bytes /= 1024
             i += 1
         return f"{size_bytes:.2f} {size_name[i]}"
+
+    def _load_notification_policy(self):
+        """Load notification permission policy for the current domain."""
+        if not self.current_domain:
+            return
+        
+        # Get notification permission from database
+        app = self.get_application()
+        if not app or not hasattr(app, 'db_manager'):
+            return
+        
+        permission = app.db_manager.get_notification_permission(self.current_domain)
+        
+        # Set dropdown selection
+        model_strings = [self.notifications_row.get_model().get_string(i) for i in range(self.notifications_row.get_model().get_n_items())]
+        try:
+            if permission == "allow":
+                selected_index = model_strings.index("Allow")
+            elif permission == "deny":
+                selected_index = model_strings.index("Block")
+            else:  # "default"
+                selected_index = model_strings.index("Default")
+            
+            self.notifications_row.set_selected(selected_index)
+        except (ValueError, IndexError):
+            self.notifications_row.set_selected(0) # Fallback to Default
+
+    def _on_notification_policy_changed(self, dropdown, pspec):
+        """Handle notification permission policy change."""
+        if not self.current_domain:
+            return
+        
+        app = self.get_application()
+        if not app or not hasattr(app, 'db_manager'):
+            return
+        
+        selected_index = dropdown.get_selected()
+        model = dropdown.get_model()
+        if selected_index < model.get_n_items():
+            policy_str = model.get_string(selected_index)
+            
+            # Map UI strings to database values
+            if policy_str == "Allow":
+                permission = "allow"
+            elif policy_str == "Block":
+                permission = "deny"
+            else:  # "Default"
+                permission = "default"
+            
+            # Update database
+            if permission == "default":
+                app.db_manager.remove_notification_permission(self.current_domain)
+            else:
+                app.db_manager.set_notification_permission(self.current_domain, permission)
+            
+            debug_print(f"[DEBUG] Notification permission for {self.current_domain} set to {permission}")
+            
+            # Show confirmation
+            if hasattr(app, 'window') and app.window:
+                # Emit notification via window's show notification method
+                try:
+                    app.window._on_show_notification(None, f"Notification permission updated for {self.current_domain}")
+                except:
+                    pass

@@ -75,6 +75,28 @@ class DatabaseManager:
             )
         """)
 
+        # Notification permissions table for per-site notification settings
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS notification_permissions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                domain TEXT NOT NULL UNIQUE,
+                permission TEXT NOT NULL DEFAULT 'default',
+                granted_date TIMESTAMP NOT NULL,
+                last_used TIMESTAMP
+            )
+        """)
+
+        # Notification history table for logging notifications
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS notification_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                domain TEXT NOT NULL,
+                title TEXT NOT NULL,
+                body TEXT,
+                timestamp TIMESTAMP NOT NULL
+            )
+        """)
+
         conn.commit()
         conn.close()
 
@@ -407,3 +429,101 @@ class DatabaseManager:
         count = cursor.fetchone()[0]
         conn.close()
         return count > 0
+
+    def set_notification_permission(self, domain: str, permission: str) -> bool:
+        """Set notification permission for a domain (allow, deny, default)."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        now = datetime.now().isoformat()
+        
+        try:
+            cursor.execute("""
+                INSERT INTO notification_permissions (domain, permission, granted_date)
+                VALUES (?, ?, ?)
+            """, (domain, permission, now))
+        except sqlite3.IntegrityError:
+            cursor.execute("""
+                UPDATE notification_permissions
+                SET permission = ?, granted_date = ?
+                WHERE domain = ?
+            """, (permission, now, domain))
+        
+        conn.commit()
+        conn.close()
+        debug_print(f"Set notification permission for {domain} to {permission}")
+        return True
+
+    def get_notification_permission(self, domain: str) -> str:
+        """Get notification permission for a domain."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT permission FROM notification_permissions WHERE domain = ?", (domain,))
+        result = cursor.fetchone()
+        conn.close()
+        return result[0] if result else "default"
+
+    def update_notification_last_used(self, domain: str):
+        """Update the last used timestamp for notification permission."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        now = datetime.now().isoformat()
+        cursor.execute("UPDATE notification_permissions SET last_used = ? WHERE domain = ?", (now, domain))
+        conn.commit()
+        conn.close()
+
+    def get_all_notification_permissions(self) -> list[tuple]:
+        """Get all notification permissions."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT domain, permission, granted_date, last_used FROM notification_permissions ORDER BY domain ASC")
+        permissions = cursor.fetchall()
+        conn.close()
+        return permissions
+
+    def remove_notification_permission(self, domain: str):
+        """Remove notification permission for a domain."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM notification_permissions WHERE domain = ?", (domain,))
+        conn.commit()
+        conn.close()
+        debug_print(f"Removed notification permission for {domain}")
+
+    def log_notification(self, domain: str, title: str, body: str = None):
+        """Log a notification to history."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        now = datetime.now().isoformat()
+        
+        cursor.execute("""
+            INSERT INTO notification_history (domain, title, body, timestamp)
+            VALUES (?, ?, ?, ?)
+        """, (domain, title, body, now))
+        
+        conn.commit()
+        conn.close()
+        debug_print(f"Logged notification from {domain}: {title}")
+
+    def get_notification_history(self, limit: int = 100) -> list[tuple]:
+        """Get notification history."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT domain, title, body, timestamp 
+            FROM notification_history 
+            ORDER BY timestamp DESC 
+            LIMIT ?
+        """, (limit,))
+        
+        history = cursor.fetchall()
+        conn.close()
+        return history
+
+    def clear_notification_history(self):
+        """Clear all notification history."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM notification_history")
+        conn.commit()
+        conn.close()
+        debug_print("Notification history cleared")

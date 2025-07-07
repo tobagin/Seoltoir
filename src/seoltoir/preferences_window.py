@@ -5,6 +5,7 @@ gi.require_version("Soup", "3.0") # For checking DoT/DoH
 from gi.repository import Gtk, Adw, Gio, GLib
 import os
 from .ui_loader import UILoader
+from .debug import debug_print
 
 class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
     
@@ -18,7 +19,7 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
         
         self.set_application(application)
         self.set_title("Seoltóir Preferences")
-        self.set_default_size(600, 800)
+        self.set_default_size(850, 800)
         
         # Get all the widgets from the UI file and add them to this window
         self._get_ui_widgets()
@@ -49,6 +50,12 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
         self.search_engine_management_group = self.builder.get_object("search_engine_management_group")
         self.add_search_engine_button = self.builder.get_object("add_search_engine_button")
         
+        # Developer tools widgets
+        self.enable_developer_tools_row = self.builder.get_object("enable_developer_tools_row")
+        self.enable_view_source_row = self.builder.get_object("enable_view_source_row")
+        self.developer_tools_shortcut_row = self.builder.get_object("developer_tools_shortcut_row")
+        self.developer_tools_shortcut_button = self.builder.get_object("developer_tools_shortcut_button")
+        
         # Privacy page widgets
         self.ad_blocking_row = self.builder.get_object("ad_blocking_row")
         self.user_agent_row = self.builder.get_object("user_agent_row")
@@ -72,10 +79,27 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
         self.theme_variant_combo = self.builder.get_object("theme_variant_combo")
         self.font_button = self.builder.get_object("font_button")
         
+        # Performance page widgets
+        self.enable_tab_suspension_row = self.builder.get_object("enable_tab_suspension_row")
+        self.tab_suspension_timeout_row = self.builder.get_object("tab_suspension_timeout_row")
+        self.max_concurrent_tabs_row = self.builder.get_object("max_concurrent_tabs_row")
+        self.enable_memory_pressure_handling_row = self.builder.get_object("enable_memory_pressure_handling_row")
+        self.memory_pressure_threshold_row = self.builder.get_object("memory_pressure_threshold_row")
+        self.enable_cache_cleanup_row = self.builder.get_object("enable_cache_cleanup_row")
+        self.cache_size_limit_row = self.builder.get_object("cache_size_limit_row")
+        self.enable_lazy_image_loading_row = self.builder.get_object("enable_lazy_image_loading_row")
+        self.lazy_loading_threshold_row = self.builder.get_object("lazy_loading_threshold_row")
+        self.enable_startup_optimization_row = self.builder.get_object("enable_startup_optimization_row")
+        self.startup_tab_loading_mode_row = self.builder.get_object("startup_tab_loading_mode_row")
+        self.enable_battery_optimization_row = self.builder.get_object("enable_battery_optimization_row")
+        self.enable_performance_monitoring_row = self.builder.get_object("enable_performance_monitoring_row")
+        self.show_memory_usage_indicators_row = self.builder.get_object("show_memory_usage_indicators_row")
+        
         # Add the pages to the window
         general_page = self.builder.get_object("general_page")
         privacy_page = self.builder.get_object("privacy_page")
         appearance_page = self.builder.get_object("appearance_page")
+        performance_page = self.builder.get_object("performance_page")
         
         # Add pages to this preferences window
         if general_page:
@@ -84,11 +108,14 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
             self.add(privacy_page)
         if appearance_page:
             self.add(appearance_page)
+        if performance_page:
+            self.add(performance_page)
     
     def _setup_ui(self):
         """Set up all UI components with initial values and settings bindings."""
         # Bind simple settings
-        self.settings.bind("homepage", self.homepage_row, "text", Gio.SettingsBindFlags.DEFAULT)
+        # Homepage is handled separately with URL normalization
+        self.homepage_row.set_text(self.settings.get_string("homepage"))
         self.settings.bind("ask-download-location", self.ask_download_location_row, "active", Gio.SettingsBindFlags.DEFAULT)
         self.settings.bind("enable-ad-blocking", self.ad_blocking_row, "active", Gio.SettingsBindFlags.DEFAULT)
         self.settings.bind("user-agent", self.user_agent_row, "text", Gio.SettingsBindFlags.DEFAULT)
@@ -106,6 +133,27 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
         self.settings.bind("enable-javascript", self.js_enable_row, "active", Gio.SettingsBindFlags.DEFAULT)
         self.settings.bind("override-system-theme", self.override_theme_row, "active", Gio.SettingsBindFlags.DEFAULT)
         
+        # Developer tools bindings
+        self.settings.bind("enable-developer-tools", self.enable_developer_tools_row, "active", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("enable-view-source", self.enable_view_source_row, "active", Gio.SettingsBindFlags.DEFAULT)
+        # Developer tools shortcut is handled separately with custom button
+        self._setup_developer_tools_shortcut_button()
+        
+        # Performance settings bindings
+        self.settings.bind("enable-tab-suspension", self.enable_tab_suspension_row, "active", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("tab-suspension-timeout", self.tab_suspension_timeout_row, "value", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("max-concurrent-tabs", self.max_concurrent_tabs_row, "value", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("enable-memory-pressure-handling", self.enable_memory_pressure_handling_row, "active", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("memory-pressure-threshold", self.memory_pressure_threshold_row, "value", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("enable-cache-cleanup", self.enable_cache_cleanup_row, "active", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("cache-size-limit", self.cache_size_limit_row, "value", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("enable-lazy-image-loading", self.enable_lazy_image_loading_row, "active", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("lazy-loading-threshold", self.lazy_loading_threshold_row, "value", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("enable-startup-optimization", self.enable_startup_optimization_row, "active", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("enable-battery-optimization", self.enable_battery_optimization_row, "active", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("enable-performance-monitoring", self.enable_performance_monitoring_row, "active", Gio.SettingsBindFlags.DEFAULT)
+        self.settings.bind("show-memory-usage-indicators", self.show_memory_usage_indicators_row, "active", Gio.SettingsBindFlags.DEFAULT)
+        
         # Set up download directory button
         self._setup_download_directory()
         
@@ -116,6 +164,7 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
         self._setup_referrer_policy_combo()
         self._setup_theme_variant_combo()
         self._setup_search_engine_combo()
+        self._setup_startup_tab_loading_mode_combo()
         
         # Ensure font size has a default value if not set BEFORE setting up font button
         if self.settings.get_int("default-font-size") <= 0:
@@ -181,6 +230,34 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
         """Set up the search engine combo box."""
         self._populate_search_engine_dropdown()
     
+    def _setup_startup_tab_loading_mode_combo(self):
+        """Set up the startup tab loading mode combo box."""
+        current_mode = self.settings.get_string("startup-tab-loading-mode")
+        
+        # Map modes to indices
+        mode_map = {
+            "immediate": 0,
+            "lazy": 1,
+            "on-demand": 2
+        }
+        
+        # Set the initial selection
+        index = mode_map.get(current_mode, 1)  # Default to lazy
+        self.startup_tab_loading_mode_row.set_selected(index)
+        
+        # Connect change signal
+        self.startup_tab_loading_mode_row.connect("notify::selected", 
+                                                 self._on_startup_mode_changed)
+    
+    def _on_startup_mode_changed(self, combo_row, param):
+        """Handle startup mode combo change."""
+        selected_index = combo_row.get_selected()
+        modes = ["immediate", "lazy", "on-demand"]
+        
+        if 0 <= selected_index < len(modes):
+            selected_mode = modes[selected_index]
+            self.settings.set_string("startup-tab-loading-mode", selected_mode)
+    
     def _setup_font_button(self):
         """Set up the font button with current font family and size."""
         from gi.repository import Pango
@@ -192,7 +269,7 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
         current_font = self.settings.get_string("font-family")
         current_size = self.settings.get_int("default-font-size")
         
-        print(f"Loading font settings: family='{current_font}', size={current_size}")
+        debug_print(f"Loading font settings: family='{current_font}', size={current_size}")
         
         # Create complete font description with both family and size
         if current_font and current_font.strip():
@@ -202,7 +279,7 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
             # Save default to settings if empty
             self.settings.set_string("font-family", "sans-serif")
         
-        print(f"Setting font string: '{font_string}'")
+        debug_print(f"Setting font string: '{font_string}'")
         
         # Create font description from string
         font_desc = Pango.FontDescription.from_string(font_string)
@@ -210,7 +287,7 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
         # Set the font description on the button
         self.font_button.set_font_desc(font_desc)
         
-        print(f"Font button initialized with: {font_desc.to_string()}")
+        debug_print(f"Font button initialized with: {font_desc.to_string()}")
     
     def _connect_signals(self):
         """Connect all the signal handlers."""
@@ -222,6 +299,8 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
         self.default_search_engine_combo.connect("notify::selected", self._on_default_search_engine_selected)
         self.add_search_engine_button.connect("clicked", self._on_add_search_engine_clicked)
         self.font_button.connect("notify::font-desc", self._on_font_changed)
+        self.homepage_row.connect("changed", self._on_homepage_changed)
+        self.developer_tools_shortcut_button.connect("clicked", self._on_developer_tools_shortcut_button_clicked)
     
     def _on_adblock_urls_changed(self, entry):
         urls_str = entry.get_text()
@@ -265,9 +344,9 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
                 self.settings.set_string("download-directory", selected_uri)
                 # Update button label
                 self.download_dir_button.set_label(os.path.basename(selected_path) or selected_path)
-                print(f"Default download directory set to: {selected_uri}")
+                debug_print(f"Default download directory set to: {selected_uri}")
         except Exception as e:
-            print(f"Error selecting download directory: {e}")
+            debug_print(f"Error selecting download directory: {e}")
 
     def _populate_search_engine_dropdown(self):
         engines = self.search_engine_manager.get_all_engines()
@@ -305,18 +384,18 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
     def _clear_search_engine_rows(self):
         """Remove all dynamically added search engine rows."""
         # Use our tracked widgets list for reliable clearing
-        print(f"Clearing {len(self.search_engine_widgets)} tracked widgets")
+        debug_print(f"Clearing {len(self.search_engine_widgets)} tracked widgets")
         
         for widget in self.search_engine_widgets:
             try:
                 self.search_engine_management_group.remove(widget)
-                print(f"Removed tracked widget: {widget}")
+                debug_print(f"Removed tracked widget: {widget}")
             except Exception as e:
-                print(f"Failed to remove widget {widget}: {e}")
+                debug_print(f"Failed to remove widget {widget}: {e}")
         
         # Clear the tracking list
         self.search_engine_widgets.clear()
-        print("Cleared widget tracking list")
+        debug_print("Cleared widget tracking list")
     
     def _add_search_engine_row(self, engine, index):
         """Add a search engine as an AdwEntryRow."""
@@ -351,7 +430,7 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
         
         # Track this widget for later removal
         self.search_engine_widgets.append(entry_row)
-        print(f"Added search engine row: {entry_row} for {engine['name']}")
+        debug_print(f"Added search engine row: {entry_row} for {engine['name']}")
     
     def _on_search_engine_url_changed(self, entry_row, pspec, engine):
         """Handle URL changes in the entry row."""
@@ -371,7 +450,7 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
             if success:
                 # Update the engine dict for future reference
                 engine["url"] = new_url
-                print(f"Updated URL for {engine['name']}: {new_url}")
+                debug_print(f"Updated URL for {engine['name']}: {new_url}")
 
     def _on_default_search_engine_selected(self, combo_row, pspec):
         selected_index = combo_row.get_selected()
@@ -407,7 +486,7 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
                 is_default=engine_data["is_default"]
             )
             if success:
-                print(f"Added search engine: {engine_data['name']}")
+                debug_print(f"Added search engine: {engine_data['name']}")
                 if hasattr(self.get_application(), 'get_window_by_id') and self.get_application().get_window_by_id(1) and hasattr(self.get_application().get_window_by_id(1), 'toast_overlay'):
                     self.get_application().get_window_by_id(1).toast_overlay.add_toast(Adw.Toast.new(f"Added search engine: {engine_data['name']}"))
             else:
@@ -502,3 +581,99 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
                 print(f"Font size changed to: {font_size}")
             
             print(f"Complete font changed to: {font_desc.to_string()}")
+    
+    def _normalize_url(self, url):
+        """Normalize URL by adding https:// if no protocol is specified."""
+        if not url or not url.strip():
+            return ""
+        
+        url = url.strip()
+        
+        # If it already has a protocol, return as-is
+        if url.startswith(("http://", "https://", "file://", "ftp://")):
+            return url
+        
+        # Add https:// for domain-like strings
+        return f"https://{url}"
+    
+    def _on_homepage_changed(self, entry):
+        """Handle homepage text changes with URL normalization."""
+        original_text = entry.get_text()
+        normalized_url = self._normalize_url(original_text)
+        
+        # Save the normalized URL to settings
+        self.settings.set_string("homepage", normalized_url)
+        
+        # Update the entry field if normalization changed the URL
+        # Only update if we're not already in the middle of a text change
+        if normalized_url != original_text and not getattr(self, '_updating_homepage', False):
+            self._updating_homepage = True
+            entry.set_text(normalized_url)
+            # Position cursor at the end
+            entry.set_position(-1)
+            self._updating_homepage = False
+    
+    def _setup_developer_tools_shortcut_button(self):
+        """Set up the developer tools shortcut button with current shortcut."""
+        current_shortcut = self.settings.get_string("developer-tools-keyboard-shortcut")
+        if current_shortcut:
+            self.developer_tools_shortcut_button.set_label(current_shortcut)
+        else:
+            # Set default shortcut if none is set
+            default_shortcut = "F12"
+            self.developer_tools_shortcut_button.set_label(default_shortcut)
+            self.settings.set_string("developer-tools-keyboard-shortcut", default_shortcut)
+    
+    def _on_developer_tools_shortcut_button_clicked(self, button):
+        """Handle developer tools shortcut button click to start listening for keystrokes."""
+        # Create a new dialog to capture keystrokes
+        dialog = Adw.AlertDialog()
+        dialog.set_heading("Set Developer Tools Shortcut")
+        dialog.set_body("Press the key combination you want to use for developer tools...")
+        dialog.add_response("cancel", "Cancel")
+        dialog.set_close_response("cancel")
+        
+        # Create an event controller for key events
+        key_controller = Gtk.EventControllerKey()
+        key_controller.connect("key-pressed", self._on_shortcut_key_pressed, dialog, button)
+        dialog.add_controller(key_controller)
+        
+        # Show the dialog
+        dialog.present(self)
+    
+    def _on_shortcut_key_pressed(self, controller, keyval, keycode, state, dialog, button):
+        """Handle key press events for setting the shortcut."""
+        from gi.repository import Gdk
+        
+        # Get modifier keys
+        modifiers = []
+        if state & Gdk.ModifierType.CONTROL_MASK:
+            modifiers.append("Ctrl")
+        if state & Gdk.ModifierType.ALT_MASK:
+            modifiers.append("Alt")
+        if state & Gdk.ModifierType.SHIFT_MASK:
+            modifiers.append("Shift")
+        if state & Gdk.ModifierType.META_MASK:
+            modifiers.append("Super")
+        
+        # Get the key name
+        key_name = Gdk.keyval_name(keyval)
+        
+        # Skip modifier-only presses
+        if key_name in ["Control_L", "Control_R", "Alt_L", "Alt_R", "Shift_L", "Shift_R", "Super_L", "Super_R", "Meta_L", "Meta_R"]:
+            return True
+        
+        # Build the shortcut string
+        if modifiers:
+            shortcut = "+".join(modifiers) + "+" + key_name
+        else:
+            shortcut = key_name
+        
+        # Update the button and settings
+        button.set_label(shortcut)
+        self.settings.set_string("developer-tools-keyboard-shortcut", shortcut)
+        
+        # Close the dialog
+        dialog.close()
+        
+        return True

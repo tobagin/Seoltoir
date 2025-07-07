@@ -17,7 +17,8 @@ adwaita_dep = dependency('libadwaita-1', version: '>= 1.7')
 webkitgtk_dep = dependency('webkitgtk-6.0', version: '>= 2.48')
 
 # Get the Python installation's site-packages (purelib) directory reliably.
-python_version = '3.13'
+python_version_result = run_command(python3_exe, '-c', 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")', check: true)
+python_version = python_version_result.stdout().strip()
 python_site_packages_dir = join_paths(get_option('prefix'), 'lib', 'python' + python_version, 'site-packages')
 
 
@@ -47,6 +48,16 @@ install_data(
     'src/seoltoir/search_suggestions_client.py',
     'src/seoltoir/ui_loader.py',
     'src/seoltoir/debug.py',
+    'src/seoltoir/password_manager.py',
+    'src/seoltoir/password_manager_window.py',
+    'src/seoltoir/password_import_export.py',
+    'src/seoltoir/pip_window.py',
+    'src/seoltoir/performance_manager.py',
+    'src/seoltoir/performance_monitor.py',
+    'src/seoltoir/omnibox_entry.py',
+    'src/seoltoir/reader_mode.js',
+    'src/seoltoir/reader_mode.css',
+    'src/seoltoir/reader_mode_preferences.py',
   ],
   install_dir: join_paths(python_site_packages_dir, 'seoltoir'),
 )
@@ -68,6 +79,7 @@ install_data(
     'data/ui/history-manager.ui',
     'data/ui/bookmark-manager.ui',
     'data/ui/download-manager.ui',
+    'data/ui/reader-mode-preferences.ui',
   ],
   install_dir: data_dir / 'seoltoir' / 'ui',
 )

@@ -20,6 +20,20 @@
         </child>
       </object>
     </child>
+    
+    <!-- Notifications Group -->
+    <child>
+      <object class="AdwPreferencesGroup" id="notifications_group">
+        <property name="title">Notifications</property>
+        
+        <child>
+          <object class="AdwComboRow" id="notifications_row">
+            <property name="title">Notifications</property>
+            <property name="subtitle">Allow this site to send desktop notifications</property>
+          </object>
+        </child>
+      </object>
+    </child>
   </object>
   
   <!-- Cookies Page -->

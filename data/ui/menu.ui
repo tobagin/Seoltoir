@@ -10,6 +10,7 @@
       <item>
         <attribute name="label">_Reading Mode</attribute>
         <attribute name="action">win.toggle_reading_mode</attribute>
+        <attribute name="accel">&lt;Alt&gt;r</attribute>
       </item>
     </section>
     
@@ -26,6 +27,14 @@
       <item>
         <attribute name="label">_Show History</attribute>
         <attribute name="action">app.show_history</attribute>
+      </item>
+      <item>
+        <attribute name="label">_Password Manager</attribute>
+        <attribute name="action">app.show_passwords</attribute>
+      </item>
+      <item>
+        <attribute name="label">_Performance Monitor</attribute>
+        <attribute name="action">app.show_performance_monitor</attribute>
       </item>
     </section>
     
@@ -63,6 +72,24 @@
         <attribute name="label">_Print</attribute>
         <attribute name="action">win.print_current_page</attribute>
         <attribute name="accel">&lt;Primary&gt;p</attribute>
+      </item>
+    </section>
+    
+    <section>
+      <item>
+        <attribute name="label">_Developer Tools</attribute>
+        <attribute name="action">win.toggle_developer_tools</attribute>
+        <attribute name="accel">F12</attribute>
+      </item>
+      <item>
+        <attribute name="label">_View Page Source</attribute>
+        <attribute name="action">win.view_page_source</attribute>
+        <attribute name="accel">&lt;Primary&gt;u</attribute>
+      </item>
+      <item>
+        <attribute name="label">_Responsive Design Mode</attribute>
+        <attribute name="action">win.toggle_responsive_design</attribute>
+        <attribute name="accel">&lt;Primary&gt;&lt;Shift&gt;m</attribute>
       </item>
     </section>
     

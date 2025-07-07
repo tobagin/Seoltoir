@@ -75,6 +75,43 @@
             </child>
           </object>
         </child>
+        
+        <!-- Developer Tools Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="developer_tools_group">
+            <property name="title">Developer Tools</property>
+            
+            <child>
+              <object class="AdwSwitchRow" id="enable_developer_tools_row">
+                <property name="title">Enable Developer Tools</property>
+                <property name="subtitle">Enable developer tools functionality including web inspector.</property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="AdwSwitchRow" id="enable_view_source_row">
+                <property name="title">Enable View Source</property>
+                <property name="subtitle">Show view source option in context menu.</property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="AdwActionRow" id="developer_tools_shortcut_row">
+                <property name="title">Developer Tools Shortcut</property>
+                <property name="subtitle">Click button and press keys to set shortcut</property>
+                <child type="suffix">
+                  <object class="GtkButton" id="developer_tools_shortcut_button">
+                    <property name="label">F12</property>
+                    <property name="valign">center</property>
+                    <style>
+                      <class name="flat"/>
+                    </style>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
       </object>
   
   <!-- Privacy & Security Page -->
@@ -309,6 +346,220 @@
                     <property name="dialog">font_dialog</property>
                   </object>
                 </child>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+  
+  <!-- Performance Page -->
+  <object class="AdwPreferencesPage" id="performance_page">
+        <property name="title">Performance</property>
+        <property name="icon-name">application-x-executable-symbolic</property>
+        
+        <!-- Tab Management Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="tab_management_group">
+            <property name="title">Tab Management</property>
+            <property name="description">Configure tab suspension and memory management</property>
+            
+            <child>
+              <object class="AdwSwitchRow" id="enable_tab_suspension_row">
+                <property name="title">Enable Tab Suspension</property>
+                <property name="subtitle">Suspend background tabs to save memory</property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="AdwSpinRow" id="tab_suspension_timeout_row">
+                <property name="title">Tab Suspension Timeout</property>
+                <property name="subtitle">Time in seconds before background tabs are suspended</property>
+                <property name="adjustment">
+                  <object class="GtkAdjustment">
+                    <property name="lower">30</property>
+                    <property name="upper">3600</property>
+                    <property name="step-increment">30</property>
+                    <property name="page-increment">60</property>
+                    <property name="value">300</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="AdwSpinRow" id="max_concurrent_tabs_row">
+                <property name="title">Maximum Concurrent Tabs</property>
+                <property name="subtitle">Maximum number of tabs that can be active simultaneously</property>
+                <property name="adjustment">
+                  <object class="GtkAdjustment">
+                    <property name="lower">5</property>
+                    <property name="upper">100</property>
+                    <property name="step-increment">1</property>
+                    <property name="page-increment">5</property>
+                    <property name="value">20</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+          </object>
+        </child>
+        
+        <!-- Memory Management Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="memory_management_group">
+            <property name="title">Memory Management</property>
+            <property name="description">Configure automatic memory optimization</property>
+            
+            <child>
+              <object class="AdwSwitchRow" id="enable_memory_pressure_handling_row">
+                <property name="title">Enable Memory Pressure Handling</property>
+                <property name="subtitle">Automatically manage resources when memory is low</property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="AdwSpinRow" id="memory_pressure_threshold_row">
+                <property name="title">Memory Pressure Threshold</property>
+                <property name="subtitle">Memory usage percentage that triggers optimization actions</property>
+                <property name="adjustment">
+                  <object class="GtkAdjustment">
+                    <property name="lower">50</property>
+                    <property name="upper">95</property>
+                    <property name="step-increment">5</property>
+                    <property name="page-increment">10</property>
+                    <property name="value">80</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+          </object>
+        </child>
+        
+        <!-- Cache Management Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="cache_management_group">
+            <property name="title">Cache Management</property>
+            <property name="description">Configure automatic cache cleanup</property>
+            
+            <child>
+              <object class="AdwSwitchRow" id="enable_cache_cleanup_row">
+                <property name="title">Enable Automatic Cache Cleanup</property>
+                <property name="subtitle">Automatically clean up old cache data when size limits are exceeded</property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="AdwSpinRow" id="cache_size_limit_row">
+                <property name="title">Cache Size Limit (MB)</property>
+                <property name="subtitle">Maximum cache size in megabytes for web content</property>
+                <property name="adjustment">
+                  <object class="GtkAdjustment">
+                    <property name="lower">100</property>
+                    <property name="upper">5000</property>
+                    <property name="step-increment">50</property>
+                    <property name="page-increment">100</property>
+                    <property name="value">500</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+          </object>
+        </child>
+        
+        <!-- Image Loading Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="image_loading_group">
+            <property name="title">Image Loading</property>
+            <property name="description">Configure lazy loading of images for better performance</property>
+            
+            <child>
+              <object class="AdwSwitchRow" id="enable_lazy_image_loading_row">
+                <property name="title">Enable Lazy Image Loading</property>
+                <property name="subtitle">Defer loading of images until they are needed</property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="AdwSpinRow" id="lazy_loading_threshold_row">
+                <property name="title">Lazy Loading Threshold (pixels)</property>
+                <property name="subtitle">Distance from viewport when images start loading</property>
+                <property name="adjustment">
+                  <object class="GtkAdjustment">
+                    <property name="lower">50</property>
+                    <property name="upper">1000</property>
+                    <property name="step-increment">50</property>
+                    <property name="page-increment">100</property>
+                    <property name="value">200</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+          </object>
+        </child>
+        
+        <!-- Startup Optimization Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="startup_optimization_group">
+            <property name="title">Startup Optimization</property>
+            <property name="description">Configure how the browser loads at startup</property>
+            
+            <child>
+              <object class="AdwSwitchRow" id="enable_startup_optimization_row">
+                <property name="title">Enable Startup Optimization</property>
+                <property name="subtitle">Optimize browser startup performance</property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="AdwComboRow" id="startup_tab_loading_mode_row">
+                <property name="title">Startup Tab Loading Mode</property>
+                <property name="subtitle">How to load tabs at startup</property>
+                <property name="model">
+                  <object class="GtkStringList">
+                    <items>
+                      <item>immediate</item>
+                      <item>lazy</item>
+                      <item>on-demand</item>
+                    </items>
+                  </object>
+                </property>
+              </object>
+            </child>
+          </object>
+        </child>
+        
+        <!-- Battery Optimization Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="battery_optimization_group">
+            <property name="title">Battery Optimization</property>
+            <property name="description">Reduce power consumption when running on battery</property>
+            
+            <child>
+              <object class="AdwSwitchRow" id="enable_battery_optimization_row">
+                <property name="title">Enable Battery Optimization</property>
+                <property name="subtitle">Reduce performance when on battery power to save energy</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        
+        <!-- Performance Monitoring Group -->
+        <child>
+          <object class="AdwPreferencesGroup" id="performance_monitoring_group">
+            <property name="title">Performance Monitoring</property>
+            <property name="description">Control performance monitoring and memory usage indicators</property>
+            
+            <child>
+              <object class="AdwSwitchRow" id="enable_performance_monitoring_row">
+                <property name="title">Enable Performance Monitoring</property>
+                <property name="subtitle">Show performance monitoring UI and collect statistics</property>
+              </object>
+            </child>
+            
+            <child>
+              <object class="AdwSwitchRow" id="show_memory_usage_indicators_row">
+                <property name="title">Show Memory Usage Indicators</property>
+                <property name="subtitle">Display memory usage information in tab tooltips</property>
               </object>
             </child>
           </object>

@@ -37,12 +37,6 @@ from .https_everywhere_rules import HttpsEverywhereRules
 from .ui_loader import UILoader
 
 # Global debug flag
-DEBUG_MODE = False
-
-def debug_print(*args, **kwargs):
-    """Print debug messages only if debug mode is enabled."""
-    if DEBUG_MODE:
-        print(*args, **kwargs)
 
 class SeoltoirApplication(Adw.Application):
     _instance = None
@@ -67,7 +61,6 @@ class SeoltoirApplication(Adw.Application):
             downloads_base_path = str(Path.home() / "Downloads")
         
         os.makedirs(downloads_base_path, exist_ok=True)
-        #print(f"Default download directory set to: {downloads_base_path}")
         
         self.download_manager = DownloadManager(GLib.filename_to_uri(downloads_base_path, None))
 
@@ -77,6 +70,10 @@ class SeoltoirApplication(Adw.Application):
         self.search_engine_manager = SearchEngineManager(self.db_manager)
 
         self.container_manager = ContainerManager(APP_ID)
+
+        # Initialize performance manager
+        from .performance_manager import PerformanceManager
+        self.performance_manager = PerformanceManager(self)
 
         self.add_action(Gio.SimpleAction.new("show_history", None))
         self.lookup_action("show_history").connect("activate", self._on_show_history)
@@ -106,6 +103,21 @@ class SeoltoirApplication(Adw.Application):
         self.lookup_action("quit").connect("activate", self._on_quit)
         self.add_action(Gio.SimpleAction.new("about", None))
         self.lookup_action("about").connect("activate", self._on_about)
+        
+        # Set up keyboard shortcuts for media controls (using safe function keys)
+        self.set_accels_for_action("win.media_play_pause", ["F9"])
+        self.set_accels_for_action("win.media_mute_toggle", ["F10"])
+        self.set_accels_for_action("win.media_volume_up", ["<Shift>F9"])
+        self.set_accels_for_action("win.media_volume_down", ["<Shift>F10"])
+        self.set_accels_for_action("win.media_fullscreen_toggle", ["F11"])
+        
+        # Set up keyboard shortcuts for find functionality
+        self.set_accels_for_action("win.find_in_page", ["<Ctrl>f"])
+        self.set_accels_for_action("win.find_next", ["F3"])
+        self.set_accels_for_action("win.find_prev", ["<Shift>F3"])
+        
+        # Set up keyboard shortcut for reader mode
+        self.set_accels_for_action("win.toggle_reading_mode", ["<Alt>r"])
 
         settings = Gio.Settings.new(APP_ID)
         self._apply_theme_settings(settings)
@@ -114,6 +126,12 @@ class SeoltoirApplication(Adw.Application):
 
         self.add_action(Gio.SimpleAction.new("clear_browsing_data", None))
         self.lookup_action("clear_browsing_data").connect("activate", self._on_clear_browsing_data)
+        self.add_action(Gio.SimpleAction.new("focus_window", None))
+        self.lookup_action("focus_window").connect("activate", self._on_focus_window)
+        self.add_action(Gio.SimpleAction.new("show_passwords", None))
+        self.lookup_action("show_passwords").connect("activate", self._on_show_passwords)
+        self.add_action(Gio.SimpleAction.new("show_performance_monitor", None))
+        self.lookup_action("show_performance_monitor").connect("activate", self._on_show_performance_monitor)
         self.connect("shutdown", self.do_shutdown)
         self.lookup_action("show_bookmarks").connect("activate", self._on_show_bookmarks)
 
@@ -217,26 +235,87 @@ class SeoltoirApplication(Adw.Application):
     def _on_quit(self, action, parameter):
         self.quit()
 
+    def _on_focus_window(self, action, parameter):
+        """Focus the main browser window."""
+        if self.window:
+            self.window.present()
+
+    def _on_show_passwords(self, action, parameter):
+        """Show the password manager window."""
+        # Get password manager from the current browser view
+        if self.window and hasattr(self.window, 'tab_view'):
+            current_page = self.window.tab_view.get_selected_page()
+            if current_page:
+                browser_view = current_page.get_child()
+                if hasattr(browser_view, 'password_manager') and browser_view.password_manager:
+                    from .password_manager_window import PasswordManagerWindow
+                    password_window = PasswordManagerWindow(self, browser_view.password_manager)
+                    password_window.set_transient_for(self.window)
+                    password_window.present()
+                    return
+        
+        # Fallback: create password manager if not available
+        try:
+            from .password_manager import PasswordManager
+            from .password_manager_window import PasswordManagerWindow
+            password_manager = PasswordManager(self.db_manager)
+            password_window = PasswordManagerWindow(self, password_manager)
+            password_window.set_transient_for(self.window)
+            password_window.present()
+        except Exception as e:
+            debug_print(f"[PASSWORD] Error opening password manager: {e}")
+            # Show error dialog
+            from gi.repository import Adw
+            dialog = Adw.AlertDialog(
+                heading="Password Manager Error",
+                body="Could not open password manager. Please ensure your system keyring is available.",
+                close_response="ok"
+            )
+            dialog.add_response("ok", "OK")
+            if self.window:
+                dialog.present(self.window)
+
+    def _on_show_performance_monitor(self, action, parameter):
+        """Show the performance monitor window."""
+        try:
+            from .performance_monitor import PerformanceMonitorWindow
+            monitor_window = PerformanceMonitorWindow(self)
+            monitor_window.set_transient_for(self.window)
+            monitor_window.present()
+        except Exception as e:
+            debug_print(f"[PERF] Error opening performance monitor: {e}")
+            # Show error dialog
+            from gi.repository import Adw
+            dialog = Adw.AlertDialog(
+                heading="Performance Monitor Error",
+                body="Could not open performance monitor. Please check system requirements.",
+                close_response="ok"
+            )
+            dialog.add_response("ok", "OK")
+            if self.window:
+                dialog.present(self.window)
+
     def _on_about(self, action, parameter):
         about_dialog = Adw.AboutWindow()
-        about_dialog.application_name = "Seoltoir"
-        about_dialog.version = "0.1.0"
-        about_dialog.developer_name = "Thiago Fernandes"
-        about_dialog.license_type = Gtk.License.GPL_3_0
-        about_dialog.website = "https://github.com/tobagin/seoltoir"
-        about_dialog.issue_url = "https://github.com/tobagin/seoltoir/issues"
-        about_dialog.set_transient_for(self.window)
-        about_dialog.comments = (
+        about_dialog.set_application_name("Seoltoir")
+        about_dialog.set_version("0.1.0")
+        about_dialog.set_developer_name("Thiago Fernandes")
+        about_dialog.set_license_type(Gtk.License.GPL_3_0)
+        about_dialog.set_website("https://github.com/tobagin/seoltoir")
+        about_dialog.set_issue_url("https://github.com/tobagin/seoltoir/issues")
+        about_dialog.set_support_url("https://github.com/tobagin/seoltoir/discussions")
+        about_dialog.set_application_icon("io.github.tobagin.seoltoir")
+        about_dialog.set_copyright("© 2025 Thiago Fernandes")
+        about_dialog.set_comments(
             "Seoltóir is a modern, privacy-focused web browser built with GTK4 and WebKitGTK. "
             "It features integrated ad and tracker blocking, advanced cookie management, "
             "container tabs for site isolation, and a clean, adaptive interface."
         )
-        about_dialog.developers = ["Thiago Fernandes"]
-        about_dialog.documenters = ["Thiago Fernandes"]
-        about_dialog.translator_credits = "Translations welcome! See GitHub for details."
-        about_dialog.copyright = "© 2025 Thiago Fernandes"
-        about_dialog.application_icon = "io.github.tobagin.seoltoir"
-        about_dialog.support_url = "https://github.com/tobagin/seoltoir/discussions"
+        about_dialog.set_developers(["Thiago Fernandes"])
+        about_dialog.set_documenters(["Thiago Fernandes"])
+        about_dialog.set_translator_credits("Translations welcome! See GitHub for details.")
+        about_dialog.set_transient_for(self.window)
+        about_dialog.set_modal(True)
         about_dialog.present()
 
     def _get_selected_search_engine_url(self, search_query: str) -> str:
@@ -304,6 +383,10 @@ class SeoltoirApplication(Adw.Application):
         session_data = self._get_current_session_data()
         self.db_manager.save_session(session_data)
 
+        # Clean up performance manager
+        if hasattr(self, 'performance_manager'):
+            self.performance_manager.cleanup()
+
         Gtk.Application.do_shutdown(self)
 
 
@@ -315,9 +398,6 @@ def main():
     if debug_mode:
         # Remove --debug from sys.argv so GTK doesn't see it
         sys.argv.remove("--debug")
-        print("Starting io.github.tobagin.seoltoir application in DEBUG mode...")
-    else:
-        print("Starting io.github.tobagin.seoltoir application...")
     
     # Set debug mode
     set_debug_mode(debug_mode)
@@ -329,8 +409,6 @@ def main():
     
     exit_status = app.run(sys.argv)
     
-    if debug_mode:
-        print(f"io.github.tobagin.seoltoir application exited with status: {exit_status}")
     
     return exit_status
 

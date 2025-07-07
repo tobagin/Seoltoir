@@ -1,11 +1,12 @@
 import gi
 import os
+import time
 import urllib.parse
 import cairo
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 gi.require_version("WebKit", "6.0")
-from gi.repository import Gtk, Adw, WebKit, Gio, GLib, Pango
+from gi.repository import Gtk, Adw, WebKit, Gio, GLib, Pango, Gdk
 from .debug import debug_print
 
 from .browser_view import SeoltoirBrowserView
@@ -19,6 +20,8 @@ from .preferences_window import SeoltoirPreferencesWindow
 from .history_manager import HistoryManager
 from .bookmark_manager import BookmarkManager
 from .ui_loader import UILoader
+from .omnibox_entry import OmniboxEntry
+from .reader_mode_preferences import ReaderModePreferencesPopover
 
 
 class SeoltoirWindow(Adw.ApplicationWindow):
@@ -40,15 +43,18 @@ class SeoltoirWindow(Adw.ApplicationWindow):
         self.back_button = builder.get_object('back_button')
         self.forward_button = builder.get_object('forward_button')
         self.reload_button = builder.get_object('reload_button')
-        self.address_bar = builder.get_object('address_bar')
+        self.address_bar_container = builder.get_object('address_bar_container')
         self.privacy_indicator = builder.get_object('privacy_indicator')
         self.tab_view = builder.get_object('tab_view')
         self.tab_bar = builder.get_object('tab_bar')
         self.new_tab_button = builder.get_object('new_tab_button')
         self.find_bar = builder.get_object('find_bar')
         self.find_entry = builder.get_object('find_entry')
+        self.find_match_counter = builder.get_object('find_match_counter')
         self.find_prev_button = builder.get_object('find_prev_button')
         self.find_next_button = builder.get_object('find_next_button')
+        self.find_case_sensitive_button = builder.get_object('find_case_sensitive_button')
+        self.find_whole_word_button = builder.get_object('find_whole_word_button')
         self.close_find_button = builder.get_object('close_find_button')
         self.toast_overlay = builder.get_object('toast_overlay')
         self.main_box = builder.get_object('main_box')
@@ -57,22 +63,11 @@ class SeoltoirWindow(Adw.ApplicationWindow):
         # Get headerbar buttons
         self.bookmark_button = builder.get_object('bookmark_button')
         self.downloads_button = builder.get_object('downloads_button')
+        self.reader_mode_button = builder.get_object('reader_mode_button')
+        self.reader_mode_preferences_button = builder.get_object('reader_mode_preferences_button')
         
         # Set up the window content - use the toast_overlay as our content
         self.set_content(self.toast_overlay)
-        
-        # Connect signals
-        self.address_bar.connect("activate", self._on_address_bar_activate)
-        self.new_tab_button.connect("clicked", self._on_new_tab_clicked)
-        self.find_entry.connect("search-changed", self._on_find_entry_changed)
-        self.find_entry.connect("activate", self._on_find_entry_activated)
-        self.find_next_button.connect("clicked", self._on_find_next_clicked)
-        self.find_prev_button.connect("clicked", self._on_find_prev_clicked)
-        self.close_find_button.connect("clicked", self._on_find_in_page)
-        
-        # Connect headerbar button signals
-        self.bookmark_button.connect("clicked", self._on_bookmark_button_clicked)
-        self.downloads_button.connect("clicked", self._on_downloads_button_clicked)
         
         # Connect signals for navigation buttons to current tab
         self.back_button.connect("clicked", self._on_back_button_clicked)
@@ -81,16 +76,59 @@ class SeoltoirWindow(Adw.ApplicationWindow):
 
         # Connect tab_view signals to update address bar and button sensitivity
         self.tab_view.connect("page-attached", self._on_page_attached)
+        self.tab_view.connect("page-detached", self._on_page_closed)
         self.tab_view.connect("notify::selected-page", self._on_selected_page_changed)
         self.tab_view.connect("notify::n-pages", self._on_n_pages_changed)
 
         # Database Manager from the Application
         self.db_manager = application.db_manager
+        
+        # Create and add omnibox entry (after db_manager is available)
+        self.address_bar = OmniboxEntry(self.db_manager, application.search_engine_manager)
+        self.address_bar_container.append(self.address_bar)
+        
+        # Connect omnibox signals
+        self.address_bar.connect("navigate-requested", self._on_navigate_requested)
+        self.address_bar.connect("suggestion-selected", self._on_suggestion_selected)
+        
+        # Connect other UI signals
+        self.new_tab_button.connect("clicked", self._on_new_tab_clicked)
+        self.find_entry.connect("search-changed", self._on_find_entry_changed)
+        self.find_entry.connect("activate", self._on_find_entry_activated)
+        self.find_next_button.connect("clicked", self._on_find_next_clicked)
+        self.find_prev_button.connect("clicked", self._on_find_prev_clicked)
+        self.find_case_sensitive_button.connect("toggled", self._on_find_options_changed)
+        self.find_whole_word_button.connect("toggled", self._on_find_options_changed)
+        self.close_find_button.connect("clicked", self._on_find_in_page)
+        
+        # Connect headerbar button signals
+        self.bookmark_button.connect("clicked", self._on_bookmark_button_clicked)
+        self.downloads_button.connect("clicked", self._on_downloads_button_clicked)
+        self.reader_mode_button.connect("toggled", self._on_reader_mode_button_toggled)
+        
+        # Set up reader mode preferences popover
+        self.reader_mode_preferences_popover = ReaderModePreferencesPopover()
+        self.reader_mode_preferences_button.set_popover(self.reader_mode_preferences_popover)
+        
+        # Set up keyboard handling for find bar
+        self.find_key_controller = Gtk.EventControllerKey()
+        self.find_key_controller.connect("key-pressed", self._on_find_key_pressed)
+        self.find_bar.add_controller(self.find_key_controller)
 
         # Initial Tab - use GSettings for homepage
         settings = Gio.Settings.new(self.get_application().get_application_id())
         initial_homepage = settings.get_string("homepage")
         self.open_new_tab_with_url(initial_homepage)
+        
+        # Mark startup as complete after a short delay to allow UI to settle
+        GLib.timeout_add_seconds(1, self._mark_startup_complete)
+        
+        # Set up memory usage indicator timer
+        self.memory_indicator_timer_id = None
+        self._start_memory_indicator_updates()
+        
+        # Connect to settings changes for memory indicators
+        settings.connect("changed::show-memory-usage-indicators", self._on_memory_indicators_setting_changed)
 
         # Window actions
         self.add_action(Gio.SimpleAction.new("new_tab", None))
@@ -105,6 +143,10 @@ class SeoltoirWindow(Adw.ApplicationWindow):
         self.lookup_action("new_container_tab").connect("activate", self._on_new_container_tab)
         self.add_action(Gio.SimpleAction.new("find_in_page", None))
         self.lookup_action("find_in_page").connect("activate", self._on_find_in_page)
+        self.add_action(Gio.SimpleAction.new("find_next", None))
+        self.lookup_action("find_next").connect("activate", self._on_find_next_action)
+        self.add_action(Gio.SimpleAction.new("find_prev", None))
+        self.lookup_action("find_prev").connect("activate", self._on_find_prev_action)
         self.add_action(Gio.SimpleAction.new("print_current_page", None))
         self.lookup_action("print_current_page").connect("activate", self._on_print_current_page)
         self.add_action(Gio.SimpleAction.new("print_selection", None))
@@ -129,6 +171,28 @@ class SeoltoirWindow(Adw.ApplicationWindow):
         self.add_action(Gio.SimpleAction.new("zoom_reset", None))
         self.lookup_action("zoom_reset").connect("activate", self._on_zoom_reset)
 
+        # Developer tools actions
+        self.add_action(Gio.SimpleAction.new("toggle_developer_tools", None))
+        self.lookup_action("toggle_developer_tools").connect("activate", self._on_toggle_developer_tools)
+        self.add_action(Gio.SimpleAction.new("show_javascript_console", None))
+        self.lookup_action("show_javascript_console").connect("activate", self._on_show_javascript_console)
+        self.add_action(Gio.SimpleAction.new("view_page_source", None))
+        self.lookup_action("view_page_source").connect("activate", self._on_view_page_source)
+        self.add_action(Gio.SimpleAction.new("toggle_responsive_design", None))
+        self.lookup_action("toggle_responsive_design").connect("activate", self._on_toggle_responsive_design)
+
+        # Media control actions
+        self.add_action(Gio.SimpleAction.new("media_play_pause", None))
+        self.lookup_action("media_play_pause").connect("activate", self._on_media_play_pause)
+        self.add_action(Gio.SimpleAction.new("media_mute_toggle", None))
+        self.lookup_action("media_mute_toggle").connect("activate", self._on_media_mute_toggle)
+        self.add_action(Gio.SimpleAction.new("media_volume_up", None))
+        self.lookup_action("media_volume_up").connect("activate", self._on_media_volume_up)
+        self.add_action(Gio.SimpleAction.new("media_volume_down", None))
+        self.lookup_action("media_volume_down").connect("activate", self._on_media_volume_down)
+        self.add_action(Gio.SimpleAction.new("media_fullscreen_toggle", None))
+        self.lookup_action("media_fullscreen_toggle").connect("activate", self._on_media_fullscreen_toggle)
+
         # --- Tier 6: Tab Context Menu Actions ---
         self.add_action(Gio.SimpleAction.new("close_current_tab", None))
         self.lookup_action("close_current_tab").connect("activate", self._on_close_current_tab)
@@ -139,21 +203,24 @@ class SeoltoirWindow(Adw.ApplicationWindow):
         self.add_action(Gio.SimpleAction.new("new_private_tab_from_context", None))
         self.lookup_action("new_private_tab_from_context").connect("activate", self._on_new_private_tab_action_activated) # Reuse action
 
-        self.address_bar.connect("notify::has-focus", self._on_address_bar_focus_notify)
+        # Note: focus handling is now done internally by OmniboxEntry
 
         self.new_tab_button_header = builder.get_object('new_tab_button_header')
         self.new_private_tab_button_header = builder.get_object('new_private_tab_button_header')
         self.new_tab_button_header.connect("clicked", self._on_new_tab_clicked)
         self.new_private_tab_button_header.connect("clicked", self._on_new_private_tab_clicked)
 
-    def _on_address_bar_activate(self, entry):
-        url = entry.get_text()
-        if not url.startswith("http://") and not url.startswith("https://"):
-            if "." in url:
-                url = "https://" + url
-            else:
-                url = self.get_application()._get_selected_search_engine_url(url)
-
+    def _on_navigate_requested(self, omnibox, url):
+        """Handle navigation request from omnibox."""
+        current_page = self.tab_view.get_selected_page()
+        if current_page:
+            browser_view = current_page.get_child()
+            browser_view.load_url(url)
+    
+    def _on_suggestion_selected(self, omnibox, url, title):
+        """Handle suggestion selection from omnibox."""
+        # Same as navigate_requested for now, but could be extended
+        # to handle suggestion-specific logic
         current_page = self.tab_view.get_selected_page()
         if current_page:
             browser_view = current_page.get_child()
@@ -230,6 +297,9 @@ class SeoltoirWindow(Adw.ApplicationWindow):
         browser_view.connect("blocked-count-changed", self._on_blocked_count_changed)
         browser_view.connect("show-notification", self._on_show_notification)
         browser_view.connect("zoom-level-changed", self._on_zoom_level_changed)
+        browser_view.connect("find-matches-found", self._on_find_matches_found)
+        browser_view.connect("load-changed", self._on_browser_load_progress_changed)
+        browser_view.connect("reader-mode-changed", self._on_reader_mode_changed)
 
         if is_private:
             page_title = "Private Tab"
@@ -257,10 +327,35 @@ class SeoltoirWindow(Adw.ApplicationWindow):
         # Load the URL if no web_view was provided
         if not web_view:
             # Set the initial URL in the address bar
-            self.address_bar.set_text(url)
-            browser_view.load_url(url)
+            self.address_bar.set_url(url)
+            
+            # Check if we should defer loading for startup optimization
+            app = self.get_application()
+            is_initial_tab = self.tab_view.get_n_pages() == 1  # First tab
+            
+            if (hasattr(app, 'performance_manager') and 
+                hasattr(browser_view, 'tab_id') and
+                app.performance_manager.should_defer_tab_loading(is_initial_tab)):
+                
+                # Defer loading and show placeholder
+                app.performance_manager.defer_tab_loading(browser_view.tab_id, url, browser_view)
+                placeholder_html = app.performance_manager.create_lazy_loading_placeholder(url, "Loading...")
+                browser_view.webview.load_html(placeholder_html, None)
+            else:
+                # Load normally
+                browser_view.load_url(url)
         
         self.tab_view.set_selected_page(page)
+        
+        # Register tab with performance manager
+        app = self.get_application()
+        if hasattr(app, 'performance_manager'):
+            # Generate unique tab ID
+            tab_id = f"tab_{int(time.time() * 1000)}_{id(browser_view)}"
+            # Store tab ID in browser view for later reference
+            browser_view.tab_id = tab_id
+            # Register with performance manager (mark as active since it's the new selected tab)
+            app.performance_manager.register_tab(tab_id, browser_view, is_active=True)
         
         # Update address bar immediately for the initial page
         if not web_view:
@@ -287,7 +382,7 @@ class SeoltoirWindow(Adw.ApplicationWindow):
     def _on_browser_uri_changed(self, browser_view, uri):
         current_page = self.tab_view.get_selected_page()
         if current_page and current_page.get_child() == browser_view:
-            self.address_bar.set_text(uri)
+            self.address_bar.set_url(uri)
 
     def _get_page_for_child(self, child):
         # Helper to find the page for a given child in tab_view
@@ -373,6 +468,15 @@ class SeoltoirWindow(Adw.ApplicationWindow):
         if current_page and current_page.get_child() == browser_view:
             self.back_button.set_sensitive(browser_view.webview.can_go_back())
             self.forward_button.set_sensitive(browser_view.webview.can_go_forward())
+    
+    def _on_browser_load_progress_changed(self, browser_view, load_event):
+        """Handle load progress changes for omnibox progress bar."""
+        current_page = self.tab_view.get_selected_page()
+        if current_page and current_page.get_child() == browser_view:
+            # Get load progress from WebKit
+            if hasattr(browser_view.webview, 'get_estimated_load_progress'):
+                progress = browser_view.webview.get_estimated_load_progress()
+                self.address_bar.set_progress(progress)
 
     def _on_browser_can_go_back_changed(self, browser_view, can_go_back):
         current_page = self.tab_view.get_selected_page()
@@ -396,23 +500,49 @@ class SeoltoirWindow(Adw.ApplicationWindow):
         browser_view.connect("blocked-count-changed", self._on_blocked_count_changed)
         browser_view.connect("show-notification", self._on_show_notification)
         browser_view.connect("zoom-level-changed", self._on_zoom_level_changed)
+        browser_view.connect("find-matches-found", self._on_find_matches_found)
 
     def _on_selected_page_changed(self, tab_view, param):
+        # Update performance manager about tab changes
+        app = self.get_application()
+        if hasattr(app, 'performance_manager'):
+            # Mark all tabs as inactive first
+            for i in range(tab_view.get_n_pages()):
+                other_page = tab_view.get_nth_page(i)
+                other_browser_view = other_page.get_child()
+                if hasattr(other_browser_view, 'tab_id'):
+                    app.performance_manager.set_tab_active(other_browser_view.tab_id, False)
+        
         page = tab_view.get_selected_page()
         if page:
             browser_view = page.get_child()
+            
+            # Mark current tab as active and load if deferred
+            if hasattr(app, 'performance_manager') and hasattr(browser_view, 'tab_id'):
+                app.performance_manager.set_tab_active(browser_view.tab_id, True)
+                # Load deferred tab if it's waiting
+                app.performance_manager.load_deferred_tab(browser_view.tab_id)
+            
             uri = browser_view.get_uri()
             # Always update address bar, even if URI is None initially
-            self.address_bar.set_text(uri if uri else "")
+            self.address_bar.set_url(uri if uri else "")
             self.back_button.set_sensitive(browser_view.webview.can_go_back())
             self.forward_button.set_sensitive(browser_view.webview.can_go_forward())
             self.privacy_indicator.set_text(f"{browser_view.blocked_count_for_page} blocked") # Update indicator
             # Update zoom indicator
             self._update_zoom_indicator(browser_view.get_zoom_level())
+            # Update reader mode button state
+            self._update_reader_mode_button_state()
         else:
             self.get_application().quit()
 
     def _on_page_closed(self, tab_view, page):
+        # Unregister tab from performance manager
+        browser_view = page.get_child()
+        app = self.get_application()
+        if hasattr(app, 'performance_manager') and hasattr(browser_view, 'tab_id'):
+            app.performance_manager.unregister_tab(browser_view.tab_id)
+        
         if self.tab_view.get_n_pages() == 0:
             self.get_application().quit()
 
@@ -556,6 +686,23 @@ class SeoltoirWindow(Adw.ApplicationWindow):
             print_manager.show_page_setup_dialog()
 
 
+    def _get_find_options(self, backwards=False):
+        """Get the current find options based on toggle button states."""
+        options = WebKit.FindOptions.WRAP_AROUND
+        
+        if not self.find_case_sensitive_button.get_active():
+            options |= WebKit.FindOptions.CASE_INSENSITIVE
+        
+        if self.find_whole_word_button.get_active():
+            # Note: WebKit doesn't have a built-in whole word option, 
+            # this would need to be implemented separately
+            pass
+        
+        if backwards:
+            options |= WebKit.FindOptions.BACKWARDS
+        
+        return options
+    
     def _on_find_in_page(self, action, parameter):
         if self.find_bar.get_visible():
             self.find_bar.set_visible(False)
@@ -573,10 +720,12 @@ class SeoltoirWindow(Adw.ApplicationWindow):
         if current_page:
             browser_view = current_page.get_child()
             if text:
-                browser_view.find_text(text, WebKit.FindOptions.WRAP_AROUND, True)
+                find_options = self._get_find_options()
+                browser_view.find_text(text, find_options, 1000)
                 self._show_notification(f"Searching for '{text}'...")
             else:
                 browser_view.clear_find_results()
+                self.find_match_counter.set_text("0 of 0")
                 self._show_notification("Search cleared.")
 
     def _on_find_entry_activated(self, entry):
@@ -585,7 +734,8 @@ class SeoltoirWindow(Adw.ApplicationWindow):
         current_page = self.tab_view.get_selected_page()
         if current_page and text:
             browser_view = current_page.get_child()
-            browser_view.find_text(text, WebKit.FindOptions.WRAP_AROUND, True) # Find next
+            find_options = self._get_find_options()
+            browser_view.find_text(text, find_options, 1000)
 
 
     def _on_find_next_clicked(self, button):
@@ -593,7 +743,8 @@ class SeoltoirWindow(Adw.ApplicationWindow):
         current_page = self.tab_view.get_selected_page()
         if current_page and text:
             browser_view = current_page.get_child()
-            browser_view.find_text(text, WebKit.FindOptions.WRAP_AROUND, True)
+            find_options = self._get_find_options()
+            browser_view.find_text(text, find_options, 1000)
 
 
     def _on_find_prev_clicked(self, button):
@@ -601,8 +752,43 @@ class SeoltoirWindow(Adw.ApplicationWindow):
         current_page = self.tab_view.get_selected_page()
         if current_page and text:
             browser_view = current_page.get_child()
-            # Use FIND_OPTIONS_BACKWARDS for previous search
-            browser_view.find_text(text, WebKit.FindOptions.WRAP_AROUND | WebKit.FindOptions.BACKWARDS, True)
+            find_options = self._get_find_options(backwards=True)
+            browser_view.find_text(text, find_options, 1000)
+    
+    def _on_find_options_changed(self, button):
+        """Called when case sensitivity or whole word options change."""
+        text = self.find_entry.get_text()
+        current_page = self.tab_view.get_selected_page()
+        if current_page and text:
+            browser_view = current_page.get_child()
+            find_options = self._get_find_options()
+            browser_view.find_text(text, find_options, 1000)
+    
+    def _on_find_next_action(self, action, parameter):
+        """Handle find next action triggered by keyboard shortcut."""
+        self._on_find_next_clicked(None)
+    
+    def _on_find_prev_action(self, action, parameter):
+        """Handle find previous action triggered by keyboard shortcut."""
+        self._on_find_prev_clicked(None)
+    
+    def _on_find_key_pressed(self, controller, keyval, keycode, state):
+        """Handle key presses in the find bar."""
+        if keyval == Gdk.KEY_Escape:
+            self._on_find_in_page(None, None)
+            return True
+        return False
+    
+    def _on_find_matches_found(self, browser_view, match_count):
+        """Handle find matches found signal from browser view."""
+        if match_count == 0:
+            self.find_match_counter.set_text("0 of 0")
+        elif match_count == -1:
+            # Search performed but count unknown
+            self.find_match_counter.set_text("Searching...")
+        else:
+            # If we had proper match count, we'd show it here
+            self.find_match_counter.set_text(f"Found {match_count}")
 
 
     def _on_show_import_export_dialog(self, action, parameter):
@@ -620,6 +806,30 @@ class SeoltoirWindow(Adw.ApplicationWindow):
     def _on_downloads_button_clicked(self, button):
         """Handle downloads button click in headerbar."""
         self._on_show_downloads(None, None)
+
+    def _on_reader_mode_button_toggled(self, button):
+        """Handle reader mode button toggle in headerbar."""
+        current_page = self.tab_view.get_selected_page()
+        if current_page:
+            browser_view = current_page.get_child()
+            if hasattr(browser_view, 'toggle_reader_mode'):
+                # Only toggle if button state doesn't match current state
+                if button.get_active() != browser_view.is_reading_mode_active:
+                    browser_view.toggle_reader_mode()
+            else:
+                self._on_show_notification(None, "Reader mode is not available for this page.")
+                button.set_active(False)  # Reset button state
+        else:
+            self._on_show_notification(None, "No page selected.")
+            button.set_active(False)  # Reset button state
+
+    def _on_reader_mode_changed(self, browser_view, is_active):
+        """Handle reader mode state change from browser view"""
+        debug_print(f"[READER_MODE] Reader mode changed: {is_active}")
+        # Update button state if this is the current tab
+        current_page = self.tab_view.get_selected_page()
+        if current_page and current_page.get_child() == browser_view:
+            self.reader_mode_button.set_active(is_active)
 
     # --- Tier 6: Tab Context Menu Handlers ---
     def _on_tab_right_clicked(self, gesture, n_press, x, y, page):
@@ -665,10 +875,54 @@ class SeoltoirWindow(Adw.ApplicationWindow):
         current_page = self.tab_view.get_selected_page()
         if current_page:
             browser_view = current_page.get_child()
-            if hasattr(browser_view, 'toggle_reading_mode'):
-                browser_view.toggle_reading_mode()
+            debug_print(f"[READER_MODE] Browser view type: {type(browser_view)}")
+            debug_print(f"[READER_MODE] Browser view methods: {[method for method in dir(browser_view) if 'reader' in method.lower()]}")
+            debug_print(f"[READER_MODE] Has toggle_reader_mode: {hasattr(browser_view, 'toggle_reader_mode')}")
+            
+            # Force method check
+            if hasattr(browser_view, 'toggle_reader_mode'):
+                debug_print("[READER_MODE] Calling toggle_reader_mode")
+                browser_view.toggle_reader_mode()
+                # Update button state after toggle
+                GLib.timeout_add(100, self._update_reader_mode_button_state)
             else:
-                self._on_show_notification(None, "Reading mode is not available.")
+                debug_print("[READER_MODE] toggle_reader_mode method not found via hasattr")
+                # Try direct method call as fallback
+                try:
+                    debug_print("[READER_MODE] Attempting direct method call")
+                    browser_view.toggle_reader_mode()
+                    debug_print("[READER_MODE] Direct method call succeeded!")
+                    GLib.timeout_add(100, self._update_reader_mode_button_state)
+                except AttributeError as e:
+                    debug_print(f"[READER_MODE] Direct method call failed: {e}")
+                    self._on_show_notification(None, "Reading mode method not available")
+                except Exception as e:
+                    debug_print(f"[READER_MODE] Unexpected error: {e}")
+                    self._on_show_notification(None, f"Reader mode error: {e}")
+        else:
+            debug_print("[READER_MODE] No current page selected")
+            self._on_show_notification(None, "No page selected.")
+    
+    def _update_reader_mode_button_state(self):
+        """Update the reader mode button state and availability."""
+        current_page = self.tab_view.get_selected_page()
+        if current_page:
+            browser_view = current_page.get_child()
+            if hasattr(browser_view, 'is_reading_mode_active'):
+                # Update button active state
+                self.reader_mode_button.set_active(browser_view.is_reading_mode_active)
+                # Enable buttons if reader mode is available
+                self.reader_mode_button.set_sensitive(True)
+                self.reader_mode_preferences_button.set_sensitive(True)
+            else:
+                self.reader_mode_button.set_active(False)
+                self.reader_mode_button.set_sensitive(False)
+                self.reader_mode_preferences_button.set_sensitive(False)
+        else:
+            self.reader_mode_button.set_active(False)
+            self.reader_mode_button.set_sensitive(False)
+            self.reader_mode_preferences_button.set_sensitive(False)
+        return False  # Don't repeat timeout
 
     def _on_new_window_requested(self, browser_view, webview):
         """Handle requests to open a new window (e.g., target=_blank)."""
@@ -686,11 +940,9 @@ class SeoltoirWindow(Adw.ApplicationWindow):
         browser_view = page.get_child()
         uri = browser_view.get_uri()
         if uri:
-            self.address_bar.set_text(uri)
+            self.address_bar.set_url(uri)
 
-    def _on_address_bar_focus_notify(self, entry, param):
-        if entry.has_focus:
-            GLib.idle_add(lambda: entry.select_region(0, -1))
+    # Note: Address bar focus handling is now done internally by OmniboxEntry
 
     def _on_zoom_in(self, action, parameter):
         """Handle zoom in action."""
@@ -729,3 +981,313 @@ class SeoltoirWindow(Adw.ApplicationWindow):
             self.zoom_indicator.set_visible(True)
         else:
             self.zoom_indicator.set_visible(False)
+
+    # Developer Tools Action Handlers
+    def _on_toggle_developer_tools(self, action, parameter):
+        """Handle toggle developer tools action."""
+        current_page = self.tab_view.get_selected_page()
+        if current_page:
+            browser_view = current_page.get_child()
+            if hasattr(browser_view, 'toggle_developer_tools'):
+                browser_view.toggle_developer_tools()
+
+    def _on_show_javascript_console(self, action, parameter):
+        """Handle show JavaScript console action."""
+        current_page = self.tab_view.get_selected_page()
+        if current_page:
+            browser_view = current_page.get_child()
+            if hasattr(browser_view, 'show_javascript_console'):
+                browser_view.show_javascript_console()
+
+    def _on_view_page_source(self, action, parameter):
+        """Handle view page source action."""
+        current_page = self.tab_view.get_selected_page()
+        if current_page:
+            browser_view = current_page.get_child()
+            if hasattr(browser_view, 'view_page_source'):
+                browser_view.view_page_source()
+
+    def _on_toggle_responsive_design(self, action, parameter):
+        """Handle toggle responsive design action."""
+        current_page = self.tab_view.get_selected_page()
+        if current_page:
+            browser_view = current_page.get_child()
+            if hasattr(browser_view, 'toggle_responsive_design_mode'):
+                browser_view.toggle_responsive_design_mode()
+
+    def _on_media_play_pause(self, action, parameter):
+        """Handle media play/pause shortcut."""
+        current_page = self.tab_view.get_selected_page()
+        if current_page:
+            browser_view = current_page.get_child()
+            if hasattr(browser_view, 'webview'):
+                # Only activate if address bar is not focused and there are media elements
+                script = """
+                (function() {
+                    // Don't interfere if user is typing in input fields
+                    const activeElement = document.activeElement;
+                    if (activeElement && (activeElement.tagName === 'INPUT' || 
+                                         activeElement.tagName === 'TEXTAREA' || 
+                                         activeElement.isContentEditable)) {
+                        return false;
+                    }
+                    
+                    const videos = document.querySelectorAll('video, audio');
+                    if (videos.length === 0) return false;
+                    
+                    for (let media of videos) {
+                        if (!media.paused || media.readyState >= 2) {
+                            if (media.paused) {
+                                media.play();
+                            } else {
+                                media.pause();
+                            }
+                            return true;
+                        }
+                    }
+                    return false;
+                })();
+                """
+                browser_view.webview.evaluate_javascript(script, -1, None, None, None)
+
+    def _on_media_mute_toggle(self, action, parameter):
+        """Handle media mute toggle shortcut."""
+        current_page = self.tab_view.get_selected_page()
+        if current_page:
+            browser_view = current_page.get_child()
+            if hasattr(browser_view, 'webview'):
+                # Only activate if not typing and there are media elements
+                script = """
+                (function() {
+                    // Don't interfere if user is typing in input fields
+                    const activeElement = document.activeElement;
+                    if (activeElement && (activeElement.tagName === 'INPUT' || 
+                                         activeElement.tagName === 'TEXTAREA' || 
+                                         activeElement.isContentEditable)) {
+                        return false;
+                    }
+                    
+                    const mediaElements = document.querySelectorAll('video, audio');
+                    if (mediaElements.length > 0) {
+                        const isMuted = mediaElements[0].muted;
+                        mediaElements.forEach(element => {
+                            element.muted = !isMuted;
+                        });
+                        return true;
+                    }
+                    return false;
+                })();
+                """
+                browser_view.webview.evaluate_javascript(script, -1, None, None, None)
+
+    def _on_media_volume_up(self, action, parameter):
+        """Handle media volume up shortcut."""
+        # Don't interfere if address bar is focused
+        if self.address_bar.has_focus():
+            return
+            
+        current_page = self.tab_view.get_selected_page()
+        if current_page:
+            browser_view = current_page.get_child()
+            if hasattr(browser_view, 'get_tab_volume') and hasattr(browser_view, 'set_tab_volume'):
+                current_volume = browser_view.get_tab_volume()
+                new_volume = min(1.0, current_volume + 0.1)
+                browser_view.set_tab_volume(new_volume)
+
+    def _on_media_volume_down(self, action, parameter):
+        """Handle media volume down shortcut."""
+        # Don't interfere if address bar is focused
+        if self.address_bar.has_focus():
+            return
+            
+        current_page = self.tab_view.get_selected_page()
+        if current_page:
+            browser_view = current_page.get_child()
+            if hasattr(browser_view, 'get_tab_volume') and hasattr(browser_view, 'set_tab_volume'):
+                current_volume = browser_view.get_tab_volume()
+                new_volume = max(0.0, current_volume - 0.1)
+                browser_view.set_tab_volume(new_volume)
+
+    def _on_media_fullscreen_toggle(self, action, parameter):
+        """Handle media fullscreen toggle shortcut."""
+        # Don't interfere if address bar is focused
+        if self.address_bar.has_focus():
+            return
+            
+        current_page = self.tab_view.get_selected_page()
+        if current_page:
+            browser_view = current_page.get_child()
+            if hasattr(browser_view, 'webview'):
+                script = """
+                (function() {
+                    // Don't interfere if user is typing in input fields
+                    const activeElement = document.activeElement;
+                    if (activeElement && (activeElement.tagName === 'INPUT' || 
+                                         activeElement.tagName === 'TEXTAREA' || 
+                                         activeElement.isContentEditable)) {
+                        return false;
+                    }
+                    
+                    const videos = document.querySelectorAll('video');
+                    if (videos.length === 0) return false;
+                    
+                    // Find the first visible or playing video
+                    for (let video of videos) {
+                        const rect = video.getBoundingClientRect();
+                        const isVisible = rect.width > 0 && rect.height > 0;
+                        
+                        if (isVisible || !video.paused) {
+                            if (document.fullscreenElement || document.webkitFullscreenElement) {
+                                // Exit fullscreen
+                                if (document.exitFullscreen) {
+                                    document.exitFullscreen();
+                                } else if (document.webkitExitFullscreen) {
+                                    document.webkitExitFullscreen();
+                                }
+                            } else {
+                                // Enter fullscreen
+                                if (video.requestFullscreen) {
+                                    video.requestFullscreen();
+                                } else if (video.webkitRequestFullscreen) {
+                                    video.webkitRequestFullscreen();
+                                }
+                            }
+                            return true;
+                        }
+                    }
+                    return false;
+                })();
+                """
+                browser_view.webview.evaluate_javascript(script, -1, None, None, None)
+
+    
+    def _mark_startup_complete(self) -> bool:
+        """Mark startup as complete in the performance manager."""
+        app = self.get_application()
+        if hasattr(app, "performance_manager"):
+            app.performance_manager.mark_startup_complete()
+        return False  # Don't repeat this timer
+    
+    def _start_memory_indicator_updates(self):
+        """Start periodic updates of memory usage indicators in tabs."""
+        settings = Gio.Settings.new(self.get_application().get_application_id())
+        show_memory_indicators = settings.get_boolean("show-memory-usage-indicators")
+        
+        if show_memory_indicators and self.memory_indicator_timer_id is None:
+            # Update memory indicators every 5 seconds
+            self.memory_indicator_timer_id = GLib.timeout_add_seconds(5, self._update_memory_indicators)
+            debug_print("[PERF] Started memory usage indicator updates")
+    
+    def _stop_memory_indicator_updates(self):
+        """Stop periodic updates of memory usage indicators."""
+        if self.memory_indicator_timer_id:
+            GLib.source_remove(self.memory_indicator_timer_id)
+            self.memory_indicator_timer_id = None
+            debug_print("[PERF] Stopped memory usage indicator updates")
+    
+    def _update_memory_indicators(self) -> bool:
+        """Update memory usage indicators for all tabs."""
+        try:
+            app = self.get_application()
+            settings = Gio.Settings.new(app.get_application_id())
+            
+            # Check if memory indicators should still be shown
+            show_memory_indicators = settings.get_boolean("show-memory-usage-indicators")
+            if not show_memory_indicators:
+                self._stop_memory_indicator_updates()
+                # Clear all tooltips
+                for i in range(self.tab_view.get_n_pages()):
+                    page = self.tab_view.get_nth_page(i)
+                    page.set_tooltip_text("")
+                return False
+            
+            # Update tooltip for each tab with memory usage
+            for i in range(self.tab_view.get_n_pages()):
+                page = self.tab_view.get_nth_page(i)
+                browser_view = page.get_child()
+                
+                if hasattr(browser_view, 'tab_id') and hasattr(app, 'performance_manager'):
+                    tab_id = browser_view.tab_id
+                    tab_state = app.performance_manager.tab_states.get(tab_id)
+                    
+                    if tab_state:
+                        # Get memory usage from tab state
+                        memory_mb = tab_state.memory_usage / (1024 * 1024) if tab_state.memory_usage > 0 else 0
+                        cpu_percent = tab_state.cpu_usage
+                        
+                        # Create tooltip with memory and performance info
+                        tooltip_parts = []
+                        
+                        # Basic tab info
+                        title = page.get_title() or "Loading..."
+                        if len(title) > 50:
+                            title = title[:47] + "..."
+                        tooltip_parts.append(f"Tab: {title}")
+                        
+                        # Memory usage
+                        if memory_mb > 0:
+                            tooltip_parts.append(f"Memory: {memory_mb:.1f} MB")
+                        else:
+                            tooltip_parts.append("Memory: < 0.1 MB")
+                        
+                        # CPU usage
+                        if cpu_percent > 0:
+                            tooltip_parts.append(f"CPU: {cpu_percent:.1f}%")
+                        
+                        # Tab state
+                        if tab_state.is_suspended:
+                            tooltip_parts.append("Status: Suspended")
+                        elif tab_state.is_active:
+                            tooltip_parts.append("Status: Active")
+                        else:
+                            tooltip_parts.append("Status: Background")
+                        
+                        # Container info if available
+                        if hasattr(browser_view, 'container_id') and browser_view.container_id != "default":
+                            container_name = browser_view.container_id.title()
+                            tooltip_parts.append(f"Container: {container_name}")
+                        
+                        # Private browsing indicator
+                        if getattr(browser_view, 'is_private', False):
+                            tooltip_parts.append("Mode: Private")
+                        
+                        tooltip_text = "\n".join(tooltip_parts)
+                        page.set_tooltip_text(tooltip_text)
+                    else:
+                        # Fallback tooltip without performance data
+                        title = page.get_title() or "Loading..."
+                        if len(title) > 50:
+                            title = title[:47] + "..."
+                        page.set_tooltip_text(f"Tab: {title}")
+                else:
+                    # Simple tooltip for tabs without performance tracking
+                    title = page.get_title() or "Loading..."
+                    if len(title) > 50:
+                        title = title[:47] + "..."
+                    page.set_tooltip_text(f"Tab: {title}")
+            
+            return True  # Continue timer
+            
+        except Exception as e:
+            debug_print(f"[PERF] Error updating memory indicators: {e}")
+            return True  # Continue timer despite error
+    
+    def _on_memory_indicators_setting_changed(self, settings, key):
+        """Handle changes to the memory indicators setting."""
+        show_memory_indicators = settings.get_boolean("show-memory-usage-indicators")
+        
+        if show_memory_indicators:
+            # Start the timer if not already running
+            if self.memory_indicator_timer_id is None:
+                self._start_memory_indicator_updates()
+        else:
+            # Stop the timer and clear tooltips
+            self._stop_memory_indicator_updates()
+            # Clear all tooltips
+            for i in range(self.tab_view.get_n_pages()):
+                page = self.tab_view.get_nth_page(i)
+                page.set_tooltip_text("")
+    
+    def cleanup_window(self):
+        """Clean up resources when window is closing."""
+        self._stop_memory_indicator_updates()
