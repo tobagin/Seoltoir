@@ -62,6 +62,78 @@ class SearchEngineManager:
             "suggestions_url": "https://searx.be/autocompleter?q=%s",
             "is_default": False,
             "is_builtin": True
+        },
+        {
+            "name": "Brave Search",
+            "url": "https://search.brave.com/search?q=%s",
+            "keyword": "brave",
+            "favicon_url": "https://search.brave.com/favicon.ico",
+            "suggestions_url": "https://search.brave.com/api/suggest?q=%s",
+            "is_default": False,
+            "is_builtin": True
+        },
+        {
+            "name": "Yandex",
+            "url": "https://yandex.com/search/?text=%s",
+            "keyword": "ya",
+            "favicon_url": "https://yandex.com/favicon.ico",
+            "suggestions_url": "https://suggest.yandex.com/suggest-ya.cgi?v=4&part=%s",
+            "is_default": False,
+            "is_builtin": True
+        },
+        {
+            "name": "Ecosia",
+            "url": "https://www.ecosia.org/search?q=%s",
+            "keyword": "eco",
+            "favicon_url": "https://www.ecosia.org/favicon.ico",
+            "suggestions_url": "https://ac.ecosia.org/autocomplete?q=%s",
+            "is_default": False,
+            "is_builtin": True
+        },
+        {
+            "name": "Swisscows",
+            "url": "https://swisscows.com/web?query=%s",
+            "keyword": "swiss",
+            "favicon_url": "https://swisscows.com/favicon.ico",
+            "suggestions_url": None,
+            "is_default": False,
+            "is_builtin": True
+        },
+        {
+            "name": "Searx.org",
+            "url": "https://searx.org/search?q=%s",
+            "keyword": "searx",
+            "favicon_url": "https://searx.org/favicon.ico",
+            "suggestions_url": "https://searx.org/autocompleter?q=%s",
+            "is_default": False,
+            "is_builtin": True
+        },
+        {
+            "name": "Whoogle",
+            "url": "https://search.whoogle.io/search?q=%s",
+            "keyword": "whoogle",
+            "favicon_url": "https://search.whoogle.io/favicon.ico",
+            "suggestions_url": None,
+            "is_default": False,
+            "is_builtin": True
+        },
+        {
+            "name": "Metager",
+            "url": "https://metager.org/meta/meta.ger3?eingabe=%s",
+            "keyword": "meta",
+            "favicon_url": "https://metager.org/favicon.ico",
+            "suggestions_url": None,
+            "is_default": False,
+            "is_builtin": True
+        },
+        {
+            "name": "Qwant",
+            "url": "https://www.qwant.com/?q=%s",
+            "keyword": "qw",
+            "favicon_url": "https://www.qwant.com/favicon.ico",
+            "suggestions_url": "https://api.qwant.com/v3/suggest/?q=%s",
+            "is_default": False,
+            "is_builtin": True
         }
     ]
     
