@@ -29,6 +29,9 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
         # Get reference to SearchEngineManager
         self.search_engine_manager = application.search_engine_manager
         
+        # Keep track of dynamically added search engine widgets
+        self.search_engine_widgets = []
+        
         # Set up all the UI components
         self._setup_ui()
         
@@ -289,8 +292,10 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
             # Add a placeholder row if no engines
             placeholder_row = Adw.ActionRow()
             placeholder_row.set_title("No search engines configured.")
-            placeholder_row._is_search_engine_row = True  # Mark for easy identification
             self.search_engine_management_group.add(placeholder_row)
+            
+            # Track the placeholder widget for later removal
+            self.search_engine_widgets.append(placeholder_row)
             return
 
         # Add each search engine as an AdwEntryRow
@@ -299,32 +304,24 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
     
     def _clear_search_engine_rows(self):
         """Remove all dynamically added search engine rows."""
-        # Simple and safe approach: collect rows with our marker attribute
-        child = self.search_engine_management_group.get_first_child()
-        rows_to_remove = []
-        total_children = 0
+        # Use our tracked widgets list for reliable clearing
+        print(f"Clearing {len(self.search_engine_widgets)} tracked widgets")
         
-        while child:
-            total_children += 1
-            # Check if this widget has our custom marker attribute
-            if hasattr(child, '_is_search_engine_row') and child._is_search_engine_row:
-                rows_to_remove.append(child)
-                print(f"Found search engine row to remove: {child}")
-            else:
-                print(f"Skipping child: {child} (type: {type(child)})")
-            child = child.get_next_sibling()
+        for widget in self.search_engine_widgets:
+            try:
+                self.search_engine_management_group.remove(widget)
+                print(f"Removed tracked widget: {widget}")
+            except Exception as e:
+                print(f"Failed to remove widget {widget}: {e}")
         
-        print(f"Total children: {total_children}, Removing: {len(rows_to_remove)} rows")
-        
-        for row in rows_to_remove:
-            self.search_engine_management_group.remove(row)
-            print(f"Removed row: {row}")
+        # Clear the tracking list
+        self.search_engine_widgets.clear()
+        print("Cleared widget tracking list")
     
     def _add_search_engine_row(self, engine, index):
         """Add a search engine as an AdwEntryRow."""
         # Create the entry row
         entry_row = Adw.EntryRow()
-        entry_row._is_search_engine_row = True  # Mark for easy identification
         
         # Set title and text
         title = engine["name"]
@@ -351,6 +348,9 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
 
         # Add the row to the group
         self.search_engine_management_group.add(entry_row)
+        
+        # Track this widget for later removal
+        self.search_engine_widgets.append(entry_row)
         print(f"Added search engine row: {entry_row} for {engine['name']}")
     
     def _on_search_engine_url_changed(self, entry_row, pspec, engine):
