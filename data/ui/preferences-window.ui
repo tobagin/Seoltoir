@@ -62,16 +62,7 @@
               </object>
             </child>
             
-            <child>
-              <object class="AdwActionRow" id="search_engine_list_row">
-                <property name="title">Configured Search Engines</property>
-                <property name="child">
-                  <object class="GtkListBox" id="search_engine_listbox">
-                    <property name="selection-mode">none</property>
-                  </object>
-                </property>
-              </object>
-            </child>
+            <!-- Search engines will be dynamically added here as AdwEntryRow widgets -->
             
             <child>
               <object class="GtkButton" id="add_search_engine_button">

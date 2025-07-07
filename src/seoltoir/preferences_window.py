@@ -43,7 +43,7 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
         self.download_dir_button = self.builder.get_object("download_dir_button")
         self.ask_download_location_row = self.builder.get_object("ask_download_location_row")
         self.default_search_engine_combo = self.builder.get_object("default_search_engine_combo")
-        self.search_engine_listbox = self.builder.get_object("search_engine_listbox")
+        self.search_engine_management_group = self.builder.get_object("search_engine_management_group")
         self.add_search_engine_button = self.builder.get_object("add_search_engine_button")
         
         # Privacy page widgets
@@ -280,43 +280,74 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
             self.default_search_engine_combo.set_selected(0) # Select first if not found
 
     def _populate_search_engine_listbox(self):
-        child = self.search_engine_listbox.get_first_child()
-        while child:
-            next_child = child.get_next_sibling()
-            self.search_engine_listbox.remove(child)
-            child = next_child
+        # Clear existing search engine rows from the group
+        # We need to remove rows that are search engine entries (not the combo or button)
+        self._clear_search_engine_rows()
 
         engines = self.search_engine_manager.get_all_engines()
         if not engines:
-            row = Adw.ActionRow.new()
-            row.set_title("No search engines configured.")
-            self.search_engine_listbox.append(row)
+            # Add a placeholder row if no engines
+            placeholder_row = Adw.ActionRow()
+            placeholder_row.set_title("No search engines configured.")
+            placeholder_row.set_name("search_engine_placeholder")
+            self.search_engine_management_group.add(placeholder_row)
             return
 
-        for engine in engines:
-            row = Adw.ActionRow.new()
-            title = engine["name"]
-            if engine.get("is_default"):
-                title += " (Default)"
-            if engine.get("keyword"):
-                title += f" [{engine['keyword']}]"
-            
-            row.set_title(title)
-            row.set_subtitle(engine["url"])
-            
-            edit_button = Gtk.Button.new_from_icon_name("document-edit-symbolic")
-            edit_button.set_tooltip_text("Edit")
-            edit_button.connect("clicked", self._on_edit_search_engine_clicked, engine)
-            row.add_suffix(edit_button)
+        # Add each search engine as an AdwEntryRow
+        for i, engine in enumerate(engines):
+            self._add_search_engine_row(engine, i)
+    
+    def _clear_search_engine_rows(self):
+        """Remove all dynamically added search engine rows."""
+        # Get all children and remove those that are search engine rows
+        child = self.search_engine_management_group.get_first_child()
+        rows_to_remove = []
+        
+        while child:
+            # Check if this is a search engine row (has our naming convention)
+            if hasattr(child, 'get_name') and child.get_name() and \
+               (child.get_name().startswith("search_engine_") or child.get_name() == "search_engine_placeholder"):
+                rows_to_remove.append(child)
+            child = child.get_next_sibling()
+        
+        for row in rows_to_remove:
+            self.search_engine_management_group.remove(row)
+    
+    def _add_search_engine_row(self, engine, index):
+        """Add a search engine as an AdwEntryRow."""
+        # Create the entry row
+        entry_row = Adw.EntryRow()
+        entry_row.set_name(f"search_engine_{engine['id']}")
+        
+        # Set title and text
+        title = engine["name"]
+        if engine.get("is_default"):
+            title += " (Default)"
+        if engine.get("keyword"):
+            title += f" [{engine['keyword']}]"
+        
+        entry_row.set_title(title)
+        entry_row.set_text(engine["url"])
+        entry_row.set_editable(False)  # Make it read-only for display
+        
+        # Add edit button
+        edit_button = Gtk.Button.new_from_icon_name("document-edit-symbolic")
+        edit_button.set_tooltip_text("Edit")
+        edit_button.set_valign(Gtk.Align.CENTER)
+        edit_button.connect("clicked", self._on_edit_search_engine_clicked, engine)
+        entry_row.add_suffix(edit_button)
 
-            # Don't allow deletion of built-in engines or if it's the only engine
-            if not engine.get("is_builtin", False) and len(engines) > 1:
-                delete_button = Gtk.Button.new_from_icon_name("user-trash-symbolic")
-                delete_button.set_tooltip_text("Delete")
-                delete_button.connect("clicked", self._on_delete_search_engine_clicked, engine)
-                row.add_suffix(delete_button)
+        # Add delete button for non-builtin engines
+        engines = self.search_engine_manager.get_all_engines()
+        if not engine.get("is_builtin", False) and len(engines) > 1:
+            delete_button = Gtk.Button.new_from_icon_name("user-trash-symbolic")
+            delete_button.set_tooltip_text("Delete")
+            delete_button.set_valign(Gtk.Align.CENTER)
+            delete_button.connect("clicked", self._on_delete_search_engine_clicked, engine)
+            entry_row.add_suffix(delete_button)
 
-            self.search_engine_listbox.append(row)
+        # Add the row to the group
+        self.search_engine_management_group.add(entry_row)
 
     def _on_default_search_engine_selected(self, combo_row, pspec):
         selected_index = combo_row.get_selected()
