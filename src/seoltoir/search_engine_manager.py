@@ -151,6 +151,9 @@ class SearchEngineManager:
         # If still no engines, populate defaults
         if not self.db.search_engines_exist():
             self._populate_default_engines()
+        else:
+            # Check if we have all the expected default engines
+            self._ensure_all_default_engines_exist()
     
     def _migrate_from_gsettings(self):
         """Migrate search engines from GSettings to database."""
@@ -192,6 +195,24 @@ class SearchEngineManager:
                 is_builtin=engine["is_builtin"]
             )
         debug_print(f"Added {len(self.DEFAULT_SEARCH_ENGINES)} default search engines")
+    
+    def _ensure_all_default_engines_exist(self):
+        """Ensure all default engines exist in the database. Add missing ones."""
+        existing_engines = self.get_all_engines()
+        existing_names = {engine["name"] for engine in existing_engines}
+        
+        for default_engine in self.DEFAULT_SEARCH_ENGINES:
+            if default_engine["name"] not in existing_names:
+                debug_print(f"Adding missing default search engine: {default_engine['name']}")
+                self.db.add_search_engine(
+                    name=default_engine["name"],
+                    url=default_engine["url"],
+                    keyword=default_engine["keyword"],
+                    favicon_url=default_engine["favicon_url"],
+                    suggestions_url=default_engine["suggestions_url"],
+                    is_default=default_engine["is_default"],
+                    is_builtin=default_engine["is_builtin"]
+                )
     
     def get_all_engines(self) -> List[Dict[str, Any]]:
         """Get all search engines as a list of dictionaries."""

@@ -328,11 +328,14 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
         
         entry_row.set_title(title)
         entry_row.set_text(engine["url"])
-        entry_row.set_editable(False)  # Make it read-only for display
+        entry_row.set_editable(True)  # Make it editable so users can modify URL directly
         
-        # Add edit button
+        # Connect to text changes to update the engine
+        entry_row.connect("notify::text", self._on_search_engine_url_changed, engine)
+        
+        # Add edit details button (for editing name, keyword, etc.)
         edit_button = Gtk.Button.new_from_icon_name("document-edit-symbolic")
-        edit_button.set_tooltip_text("Edit")
+        edit_button.set_tooltip_text("Edit Details")
         edit_button.set_valign(Gtk.Align.CENTER)
         edit_button.connect("clicked", self._on_edit_search_engine_clicked, engine)
         entry_row.add_suffix(edit_button)
@@ -348,6 +351,25 @@ class SeoltoirPreferencesWindow(Adw.PreferencesWindow):
 
         # Add the row to the group
         self.search_engine_management_group.add(entry_row)
+    
+    def _on_search_engine_url_changed(self, entry_row, pspec, engine):
+        """Handle URL changes in the entry row."""
+        new_url = entry_row.get_text().strip()
+        if new_url and new_url != engine["url"]:
+            # Update the engine with the new URL
+            success = self.search_engine_manager.update_engine(
+                engine_id=engine["id"],
+                name=engine["name"],
+                url=new_url,
+                keyword=engine.get("keyword"),
+                favicon_url=engine.get("favicon_url"),
+                suggestions_url=engine.get("suggestions_url"),
+                is_default=engine.get("is_default", False)
+            )
+            if success:
+                # Update the engine dict for future reference
+                engine["url"] = new_url
+                print(f"Updated URL for {engine['name']}: {new_url}")
 
     def _on_default_search_engine_selected(self, combo_row, pspec):
         selected_index = combo_row.get_selected()

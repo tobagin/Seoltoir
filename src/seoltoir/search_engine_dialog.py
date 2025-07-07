@@ -3,7 +3,7 @@
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Gtk, Adw, Gio, GLib
+from gi.repository import Gtk, Adw, Gio, GLib, GObject
 
 from .ui_loader import UILoader
 
@@ -95,7 +95,7 @@ class SearchEngineDialog(Adw.Dialog):
         dialog.destroy()
 
 # Define signal for SearchEngineDialog
-GLib.GObject.type_register(SearchEngineDialog)
+GObject.type_register(SearchEngineDialog)
 SearchEngineDialog.connect_signals({
     "search-engine-configured": (GLib.SignalFlags.RUN_FIRST, None, (object, bool,)), # engine_data dict, is_new
 })
