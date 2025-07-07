@@ -11,7 +11,7 @@
   <!-- General Page -->
   <object class="AdwPreferencesPage" id="general_page">
         <property name="title">General</property>
-        <property name="icon-name">document-page-setup-symbolic</property>
+        <property name="icon-name">preferences-system-symbolic</property>
         
         <!-- Startup Group -->
         <child>
@@ -80,7 +80,7 @@
   <!-- Privacy & Security Page -->
   <object class="AdwPreferencesPage" id="privacy_page">
         <property name="title">Privacy &amp; Security</property>
-        <property name="icon-name">dialog-password-symbolic</property>
+        <property name="icon-name">security-high-symbolic</property>
         
         <!-- Content Blocking Group -->
         <child>
@@ -273,7 +273,7 @@
   <!-- Appearance Page -->
   <object class="AdwPreferencesPage" id="appearance_page">
         <property name="title">Appearance</property>
-        <property name="icon-name">preferences-desktop-theme-symbolic</property>
+        <property name="icon-name">applications-graphics-symbolic</property>
         
         <!-- Theme Group -->
         <child>
